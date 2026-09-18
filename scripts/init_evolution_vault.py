@@ -67,9 +67,14 @@ def ensure_gitignore_guard() -> bool:
     return True
 
 
-def init_evolution_structure(obsidian_path: Optional[str] = None, private_remote: Optional[str] = None) -> Dict[str, Any]:
+def init_evolution_structure(
+    obsidian_path: Optional[str] = None,
+    private_remote: Optional[str] = None,
+    online_url: Optional[str] = None,
+    access_token: Optional[str] = None
+) -> Dict[str, Any]:
     """
-    创建并初始化 .evolution 私有进化工作区
+    创建并初始化 .evolution 私有进化工作区 (支持本地路径、在线知识库URL与密钥)
     """
     ensure_gitignore_guard()
 
@@ -117,24 +122,37 @@ obsidian:
   auto_sync_on_closeout: true
 """, encoding="utf-8")
 
-    # 3. 配置 obsidian_sync
-    target_obsidian = None
-    if obsidian_path:
-        target_obsidian = Path(obsidian_path)
-    else:
-        for c in DEFAULT_OBSIDIAN_CANDIDATES:
-            if c.exists():
-                target_obsidian = c
-                break
+    # 3. 配置 obsidian_sync (支持本地路径、在线知识库URL与访问密钥，均可留空，自动探测最优同步方式)
+    try:
+        from obsidian_bridge import auto_detect_obsidian_env, save_config as save_obs_config
+        obs_cfg = auto_detect_obsidian_env(
+            explicit_vault=obsidian_path,
+            explicit_online_url=online_url,
+            explicit_token=access_token
+        )
+        save_obs_config(obs_cfg)
+    except Exception as e:
+        target_obsidian = None
+        if obsidian_path:
+            target_obsidian = Path(obsidian_path)
+        else:
+            for c in DEFAULT_OBSIDIAN_CANDIDATES:
+                if c.exists():
+                    target_obsidian = c
+                    break
 
-    obsidian_cfg = EVOLUTION_DIR / "obsidian_sync" / "config.json"
-    obs_info = {
-        "enabled": target_obsidian is not None,
-        "vault_path": str(target_obsidian) if target_obsidian else "",
-        "sync_folders": ["skills", "workflows", "knowledge", "prompts"],
-        "tag_filter": ["#skill", "#workflow", "#prompt"]
-    }
-    obsidian_cfg.write_text(json.dumps(obs_info, ensure_ascii=False, indent=2), encoding="utf-8")
+        obsidian_cfg = EVOLUTION_DIR / "obsidian_sync" / "config.json"
+        obs_cfg = {
+            "version": "2.0",
+            "enabled": True,
+            "vault_path": str(target_obsidian) if target_obsidian else "",
+            "online_url": online_url or "",
+            "access_token": access_token or "",
+            "sync_mode": "local_folder" if target_obsidian else "standalone_vault",
+            "sync_folders": ["skills", "workflows", "knowledge", "prompts"],
+            "tag_filter": ["#skill", "#workflow", "#prompt"]
+        }
+        obsidian_cfg.write_text(json.dumps(obs_cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # 4. 初始化独立私有 git 仓库
     is_git = (EVOLUTION_DIR / ".git").exists()
@@ -203,7 +221,9 @@ def check_evolution_status() -> Dict[str, Any]:
 def main():
     parser = argparse.ArgumentParser(description="auto-skills 个人私有进化仓库与双轨隔离初始化向导")
     parser.add_argument("--init", action="store_true", help="执行私有进化仓库初始化与目录规划")
-    parser.add_argument("--obsidian", help="指定绑定的 Obsidian 知识库根目录路径 (如 D:\\LLM-Wiki)")
+    parser.add_argument("--obsidian", help="指定绑定的本地 Obsidian 知识库路径 (如 D:\\LLM-Wiki，可留空)")
+    parser.add_argument("--online-url", help="指定在线知识库 URL (如 https://llm.yangonly.com，可留空)")
+    parser.add_argument("--access-token", help="指定在线知识库访问密钥 / Bearer Token (可留空)")
     parser.add_argument("--remote", help="指定远端私有 Git 仓库 URL (如 git@github.com:user/my-skills-vault.git)")
     parser.add_argument("--status", action="store_true", help="查看当前私有进化状态")
 
@@ -216,7 +236,12 @@ def main():
 
     if args.init or not EVOLUTION_DIR.exists():
         print("[*] 正在为当前环境建立双轨隔离的个人私有进化空间 (.evolution)...")
-        st = init_evolution_structure(obsidian_path=args.obsidian, private_remote=args.remote)
+        st = init_evolution_structure(
+            obsidian_path=args.obsidian,
+            private_remote=args.remote,
+            online_url=args.online_url,
+            access_token=args.access_token
+        )
         print(json.dumps(st, ensure_ascii=False, indent=2))
         print("\n✅ 私有进化仓库规划与初始化完成！")
         print("💡 提示：你的个性化经验与 Obsidian 知识库将沉淀在 .evolution/ 独立轨道中；上游公开库拉取更新时绝不覆盖！")
