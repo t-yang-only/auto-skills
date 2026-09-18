@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Memory Guard"
+  short_description: "Guard task boundaries and compact recovery state"
+  default_prompt: "Use $codex-memory-guard to keep confirmed critical state durable, HANDOFF compact, and compaction recovery selective."

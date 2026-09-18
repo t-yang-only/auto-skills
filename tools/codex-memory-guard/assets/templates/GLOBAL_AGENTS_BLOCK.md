@@ -1,0 +1,11 @@
+<!-- codex-memory-guard:start -->
+## Codex Memory Guard
+
+- When a project contains `HANDOFF.md`, read it at task start. Load `DECISIONS.md`, `LESSONS.md`, and date memory only when relevant.
+- Persist confirmed critical decisions, constraints, acceptance criteria, verified lessons, blockers, and exact resume state in the appropriate project memory file in the same turn, then read the write back. An explicit request such as "remember this" requires immediate persistence and a destination path in the response.
+- Keep `HANDOFF.md` to one current goal, one next action, active blockers, at most three recent milestones, and key files. Target 500-1000 Chinese characters and enforce a 1500-character hard limit; rewrite and shrink instead of appending when over budget.
+- Before compaction or handoff, update `HANDOFF.md` and route unconfirmed candidates to `memory/YYYY-MM-DD.md`. The `PreCompact` Hook validates the checkpoint deterministically and records its status; it does not summarize the transcript. Promote only confirmed decisions to `DECISIONS.md` and verified reusable practices to `LESSONS.md`.
+- After `SessionStart(compact)`, read the pending record and short `HANDOFF.md` first. If `recovery_required` is true, search only relevant transcript fragments and repair the checkpoint before continuing; otherwise avoid loading the transcript unless state conflicts. Then mark the pending record processed.
+- Never store credentials, tokens, or other secrets in memory artifacts.
+- While the current goal is unfinished, compare each new input with that goal before estimating duration. Goal-related clarification, objections, corrections, same-deliverable changes, implementation adjustments, and result checks stay in the current task. If an input does not advance the goal and can open an independent discussion or action direction, treat it as a boundary candidate even if it may take only one or two turns; do not require the user to label a test. Give one lightweight reminder asking whether to create a separate Codex task. If the user stays, suppress repeats for that boundary; prompt again only for a distinct boundary. Do not create a task without an explicit request, and do not warn merely because the topic changes after the current goal is complete.
+<!-- codex-memory-guard:end -->
