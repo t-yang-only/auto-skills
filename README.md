@@ -113,6 +113,50 @@ python scripts/auto_router.py "接手一个陌生的前端项目，先做架构�
 
 ---
 
+## 📡 多渠道消息同步与任务自动化推送 (Multi-Channel Sync Hub)
+
+支持客户自主配置主流消息推送渠道，完成大型任务或 Git 提交时自动广播：
+- **支持渠道**：Server酱 Turbo (微信)、企业微信群机器人、飞书机器人、钉钉机器人 (支持签名)、PushPlus、Telegram Bot、Bark (iOS)、自定义 Webhook。
+- **客户自配置**：
+  ```bash
+  # 查看所有渠道状态
+  python scripts/notify_push.py --config-list
+
+  # 配置企业微信 / 飞书 / 钉钉
+  python scripts/notify_push.py --config-set wecom "https://qyapi.weixin.qq.com/..."
+  python scripts/notify_push.py --config-set feishu "https://open.feishu.cn/..."
+  python scripts/notify_push.py --config-set dingtalk "https://oapi.dingtalk.com/..." "SEC_SECRET"
+
+  # 启停渠道与联通测试
+  python scripts/notify_push.py --enable wecom
+  python scripts/notify_push.py --test
+  ```
+
+---
+
+## 🧬 双轨私有进化与 Obsidian 知识库互通 (Dual-Track Evolution & Obsidian)
+
+1. **双轨物理隔离**：
+   - 公开上游核心（开源 Git 仓库）：标准工程与内置工具集；
+   - 用户私有进化（`.evolution/` 目录）：独立 Git 仓库，存放个人习惯、私有技能与凭据；
+   - **更新零风险**：上游 `git pull origin main` 绝不会覆盖或冲突你的私有进化资产！
+2. **Obsidian 知识库自适应同步**：
+   - 支持本地路径（如 `D:\ObsidianVault`）与在线知识库 URL（如 `https://llm.example.com`）；
+   - 支持填写访问密钥 / Bearer Token，**均可留空**；
+   - **首次自适应判定**：自动探测本地知识库与 Git 关联，决定 `git_sync` / `local_folder` / `online_api` / `hybrid` 同步方式。
+  ```bash
+  # 自动侦测与查看状态
+  python scripts/obsidian_bridge.py --status
+
+  # 填入在线知识库与密钥 (可留空)
+  python scripts/obsidian_bridge.py --set-online "https://llm.example.com" --set-token "secret_token"
+  
+  # 清空在线配置回退至纯本地
+  python scripts/obsidian_bridge.py --clear-online
+  ```
+
+---
+
 ## 📜 许可证 (License)
 
 本项目基于 [MIT License](LICENSE) 开源发布。内部收拢的成员技能遵循其各自原始开源协议。
