@@ -535,6 +535,72 @@ def update_skills_recommendation(agent_dir: Path, skills: str, mcps: str, tools:
     write_file(rec_file, "\n".join(lines) + "\n")
 
 
+def renew_task_atomic(root: Path, task_id: str, extend_minutes: int = 30) -> bool:
+    """
+    为正在执行的任务续期（延长租约有效截止时间）
+    """
+    agent_dir, locks_dir = get_agent_paths(root)
+    tid = task_id.strip().upper()
+    coordination_lock = FileMutex(locks_dir / "task_coordination.lock")
+
+    with coordination_lock:
+        lock_file = locks_dir / f"task_{tid}.json"
+        if not lock_file.exists():
+            print(f"[ERROR] 无法续期：未找到任务 [{tid}] 的活跃锁！")
+            return False
+
+        try:
+            curr = json.loads(lock_file.read_text(encoding="utf-8"))
+            now_ts = time.time()
+            old_exp = curr.get("expires_at_ts", now_ts)
+            base_ts = max(now_ts, old_exp)
+            new_ts = base_ts + (extend_minutes * 60)
+            new_exp_str = (datetime.now() + timedelta(minutes=int((new_ts - now_ts)/60))).strftime("%Y-%m-%d %H:%M:%S")
+
+            curr["expires_at_ts"] = new_ts
+            curr["expires_at"] = new_exp_str
+            lock_file.write_text(json.dumps(curr, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            refresh_board_markdown(agent_dir, locks_dir)
+            print(f"[OK] 任务 [{tid}] 租约已成功续期 {extend_minutes} 分钟！新截止时间: {new_exp_str}")
+            return True
+        except Exception as e:
+            print(f"[ERROR] 任务续期失败: {e}")
+            return False
+
+
+def check_file_conflicts_atomic(root: Path, files: str) -> Dict[str, Any]:
+    """
+    检查指定文件列表是否与其他 Agent 正在进行中的任务或文件锁冲突
+    """
+    _, locks_dir = get_agent_paths(root)
+    file_list = [f.strip() for f in files.split(",") if f.strip()]
+    if not file_list:
+        return {"has_conflict": False, "conflicts": []}
+
+    claims = get_task_claims(locks_dir)
+    now_ts = time.time()
+    conflicts = []
+
+    for tid, c in claims.items():
+        if now_ts < c.get("expires_at_ts", 0):
+            target_files = c.get("files", [])
+            overlap = set(file_list).intersection(set(target_files))
+            if overlap:
+                conflicts.append({
+                    "task_id": tid,
+                    "holder": c.get("holder_id"),
+                    "task_name": c.get("task_name"),
+                    "overlapping_files": list(overlap),
+                    "expires_at": c.get("expires_at")
+                })
+
+    return {
+        "has_conflict": len(conflicts) > 0,
+        "conflicts": conflicts
+    }
+
+
 def refresh_board_markdown(agent_dir: Path, locks_dir: Path):
     """根据 live locks 刷新 任务认领表.md"""
     board_file = agent_dir / "任务认领表.md"
@@ -633,6 +699,15 @@ def main():
     # 5. gc 清理僵尸锁
     subparsers.add_parser("gc", parents=[root_parser], help="清理超时过期僵尸任务锁")
 
+    # 6. renew 租约续期
+    p_renew = subparsers.add_parser("renew", parents=[root_parser], help="为进行中的任务延长租约有效时间")
+    p_renew.add_argument("--task-id", required=True, help="任务唯一标识")
+    p_renew.add_argument("--extend", type=int, default=30, help="延长时长分钟数 (默认 30)")
+
+    # 7. check-file 文件冲突前置检测
+    p_check = subparsers.add_parser("check-file", parents=[root_parser], help="预先检测即将修改的文件是否已被他人锁定")
+    p_check.add_argument("--files", required=True, help="待检测的文件列表 (逗号分隔)")
+
     args = parser.parse_args()
     root = Path(args.root).resolve() if args.root else Path.cwd()
 
@@ -679,6 +754,22 @@ def main():
         cnt = clean_stale_locks(root)
         print(f"[OK] 僵尸锁回收完毕，共清理 {cnt} 个过期锁。")
         sys.exit(0)
+
+    elif args.action == "renew":
+        ok = renew_task_atomic(root=root, task_id=args.task_id, extend_minutes=args.extend)
+        sys.exit(0 if ok else 1)
+
+    elif args.action == "check-file":
+        res = check_file_conflicts_atomic(root=root, files=args.files)
+        if res.get("has_conflict"):
+            print(f"⚠️ 检测到 {len(res['conflicts'])} 处文件占用冲突：")
+            for c in res["conflicts"]:
+                print(f"  - 任务: [{c['task_id']}] (持有者: {c['holder']}, 任务名: {c['task_name']})")
+                print(f"    冲突文件: {c['overlapping_files']} | 截止时间: {c['expires_at']}")
+            sys.exit(1)
+        else:
+            print("✅ 检查通过：所选文件当前无任何 Agent 占用冲突，可安全编辑！")
+            sys.exit(0)
 
     else:
         # 兼容旧版参数: 如果直接传 --client --task 等

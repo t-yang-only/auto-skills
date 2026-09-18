@@ -444,8 +444,8 @@ def cmd_list():
 
 
 def main():
-    # 优先检测是否为 nm-skills 多 Agent 协同排他子命令 (claim / done / board / release / gc)
-    if len(sys.argv) > 1 and sys.argv[1] in ("claim", "done", "board", "release", "gc"):
+    # 1. 优先检测是否为 nm-skills 多 Agent 协同排他子命令 (claim / done / board / release / gc / renew / check-file)
+    if len(sys.argv) > 1 and sys.argv[1] in ("claim", "done", "board", "release", "gc", "renew", "check-file"):
         try:
             import nm_register
             return nm_register.main()
@@ -457,8 +457,29 @@ def main():
                 print(f"[ERROR] 调用 nm-skills 协同模块失败: {e}")
                 sys.exit(1)
 
-    ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版，深度融合 nm-skills 协同排他锁)")
-    ap.add_argument("query", nargs="*", help="任务描述文本，或协同子命令 (claim/done/board/release/gc)")
+    # 2. 检测是否为个人私有进化同步子命令 (sync-private / private-sync)
+    if len(sys.argv) > 1 and sys.argv[1] in ("sync-private", "private-sync"):
+        try:
+            import sync_evolution
+            # 去除首个参数后再转发
+            sys.argv.pop(1)
+            return sync_evolution.main()
+        except Exception as e:
+            print(f"[ERROR] 调用私有同步模块失败: {e}")
+            sys.exit(1)
+
+    # 3. 检测是否为技能自安装/纳管子命令 (install-skill / onboard-skill)
+    if len(sys.argv) > 1 and sys.argv[1] in ("install-skill", "onboard-skill"):
+        try:
+            import tool_onboarder
+            sys.argv.pop(1)
+            return tool_onboarder.main()
+        except Exception as e:
+            print(f"[ERROR] 调用工具纳管模块失败: {e}")
+            sys.exit(1)
+
+    ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版，深度融合 nm-skills 协同排他锁与私有 Git 同步)")
+    ap.add_argument("query", nargs="*", help="任务描述文本，或协同子命令 (claim/done/board/renew/sync-private/install-skill)")
     ap.add_argument("--mode", choices=["auto", "fast", "full"], default="auto", help="路由模式：auto 自动评估复杂度，fast 极速省Token，full 完整SDLC")
     ap.add_argument("--list", action="store_true", help="列出所有收编成员与其自适应解析状态")
     args = ap.parse_args()
