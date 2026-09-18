@@ -12,7 +12,8 @@
 | 01 | `using-superpowers` | `pre-flight` | **全局基准**：每次动作前强制全盘扫描可用技能，输出声明 |
 | 02 | `skills-manager-cli` | `manage` | 驱动 `skm` 工具，完成全平台软链接纳管、跨端同步与修复 |
 | 03 | `codex-memory-guard` | `manage` | 跨轮任务边界防护、关键记忆写入与上下文压缩守卫 |
-| 04 | `find-skills` | `acquire` | "有没有技能做X"：调用 npx skills 快速安装社区技能 |
+| 04 | `nm-skills` | `manage` | 多 Agent 原子任务排他认领、防同号冲突与工作台账 (v2.0) |
+| 05 | `find-skills` | `acquire` | "有没有技能做X"：调用 npx skills 快速安装社区技能 |
 | 05 | `skill-discovery` | `acquire` | 社区技能多维对比、选型评估与质量审查 |
 | 06 | `skillnet` | `acquire` | 技能供应链：将现有代码/文档/日志/轨迹逆向沉淀为标准技能 |
 | 07 | `codebase-onboarding` | `understand` | 陌生仓库系统侦察，输出架构映射、入口目录与上手指南 |
@@ -26,7 +27,8 @@
 | 15 | `systematic-debugging` | `verify` | 4步系统性根因诊断环：确定性复现->逆向溯源->单点微创修复->防退化 |
 | 16 | `code-review` | `verify` | 5轴代码严审：逻辑正确性、安全防御、架构开闭、复杂度与可测性 |
 | 17 | `security-best-practices`| `verify` | 语言与框架特定安全漏洞审计（XSS/注入/密钥泄露）与加固 |
-| 18 | `playwright` | `verify` | 真实无头浏览器端到端自动化测试、表单录制、截图走查与数据采集 |
+| 18 | `authorized-pentest-guard`| `verify` | 合法授权渗透、漏洞PoC验证与防误拒技术守卫 |
+| 19 | `playwright` | `verify` | 真实无头浏览器端到端自动化测试、表单录制、截图走查与数据采集 |
 | 19 | `gh-fix-ci` | `verify` | GitHub Actions CI/CD 流水线报错诊断、日志审查与自愈修复 |
 | 20 | `codex-project-closeout`| `handoff` | 工程交付收尾归档、交付物核验与知识库落盘 |
 | 21 | `team-handoff` | `handoff` | 多 Agent 任务移交协议、状态断点保存与复盘检查点 |

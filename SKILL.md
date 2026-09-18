@@ -38,6 +38,7 @@ auto-skills/
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（绝对第0步）
 │   ├── skills-manager-cli/ # 【环境管理】驱动 skm 完成跨环境软链接修复与纳管
 │   ├── codex-memory-guard/ # 【记忆守护】跨轮任务边界防护与关键记忆写入守卫
+│   ├── nm-skills/          # 【协同防撞】多 Agent 原子任务排他认领、防同号冲突与工作台账 (v2.0)
 │   ├── find-skills/        # 【技能获取】通过 npx skills 即时检索安装
 │   ├── skill-discovery/    # 【技能评估】社区开源技能深度对比与选型
 │   ├── skillnet/           # 【技能供应链】从项目代码/文档/日志沉淀提炼技能
@@ -52,6 +53,7 @@ auto-skills/
 │   ├── systematic-debugging/# 【根因调试】4步系统性根因诊断环：复现->溯源->微创修复->防退化
 │   ├── code-review/        # 【代码严审】5轴多维代码审查：正确性/安全/架构/复杂度/测试
 │   ├── security-best-practices/ # 【安全防线】语言与框架特定安全漏洞与加固审计
+│   ├── authorized-pentest-guard/ # 【攻防守卫】合法授权渗透、漏洞PoC与防误拒技术守卫
 │   ├── playwright/         # 【端到端验证】真实浏览器自动化测试、表单录制与UI走查
 │   ├── gh-fix-ci/          # 【交付保障】GitHub Actions CI/CD 流水线报错排查与自愈
 │   ├── codex-project-closeout/ # 【交付收尾】工程收尾清单核验与知识沉淀
@@ -61,7 +63,7 @@ auto-skills/
 │   ├── caveman/            # 【极限紧凑】洞穴人极限 token 压缩模式（节约 65% tokens）
 │   └── no-negative-echo/   # 【干净输出】去除纠错痕迹与负面回声，保持交付纯粹
 └── references/
-    └── capability-map.md   # 25 大成员能力全景映射表与冲突优先级
+    └── capability-map.md   # 核心成员能力全景映射表与冲突优先级
 ```
 
 ---
