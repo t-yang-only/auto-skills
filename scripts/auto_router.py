@@ -293,17 +293,43 @@ def resolve_member_path(name: str) -> Tuple[Optional[Path], str]:
     return None, "missing"
 
 
+def get_custom_private_members() -> List[Tuple[str, str, str, str, str, str]]:
+    """
+    动态扫描 .evolution/custom_skills/ 注册台账，加载用户个人自安装与私有技能
+    """
+    custom_reg = PRIVATE_EVOLUTION_TOOLS / "registry.json"
+    if not custom_reg.exists():
+        return []
+    try:
+        data = json.loads(custom_reg.read_text(encoding="utf-8"))
+        res = []
+        for name, info in data.get("tools", {}).items():
+            label = info.get("description", f"私有自定义技能 {name}")[:50]
+            cat = info.get("category", "implement")
+            # 正则模式：匹配技能名称或常见别名
+            kw = re.escape(name)
+            res.append((name, f"【私有技能】{label}", cat, "match", kw, cat))
+        return res
+    except Exception:
+        return []
+
+
+def get_all_members() -> List[Tuple[str, str, str, str, str, str]]:
+    return list(MEMBERS) + get_custom_private_members()
+
+
 def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
     q = query
     persona_off = bool(PERSONA_OFF.search(q))
     tier, tier_reason = classify_task_tier(q, explicit_mode=mode)
 
+    all_members = get_all_members()
     selected = []
 
     # 如果是 FAST_PATH：只匹配 1 个最关键的实施/回答技能（或空），绝对跳过 baseline (using-superpowers) 与 design 门禁！
     if tier == "FAST_PATH":
         # 寻找是否有强相关的单个专精技能（如 ponytail 或 cli）
-        for name, label, cat, m_mode, pat, stage in MEMBERS:
+        for name, label, cat, m_mode, pat, stage in all_members:
             if m_mode == "match" and pat:
                 m = re.search(pat, q, re.I)
                 if m:
@@ -346,7 +372,7 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
         }
 
     # FULL_SDLC 完整模式：
-    for name, label, cat, m_mode, pat, stage in MEMBERS:
+    for name, label, cat, m_mode, pat, stage in all_members:
         why = None
         if m_mode == "baseline":
             why = "流程基座：动手前先全盘扫描可用技能，杜绝盲目实施"
@@ -420,14 +446,15 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
 
 
 def cmd_list():
+    all_members = get_all_members()
     report = {
         "auto_skills_root": str(SKILL_ROOT),
         "internal_tools_root": str(INTERNAL_TOOLS),
         "private_evolution_root": str(PRIVATE_EVOLUTION_TOOLS),
-        "total_bundled_members": len(MEMBERS),
+        "total_bundled_members": len(all_members),
         "members": []
     }
-    for name, label, cat, mode, _, stage in MEMBERS:
+    for name, label, cat, mode, _, stage in all_members:
         path_obj, origin = resolve_member_path(name)
         report["members"].append({
             "skill": name,
