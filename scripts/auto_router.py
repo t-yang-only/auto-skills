@@ -146,6 +146,11 @@ MEMBERS = [
      r"cli|command.?line|curl|sdk|wrapper|构建cli|命令行工具|生成cli|做成命令行|做成工具",
      "implement"),
 
+    ("ppt-skill", "演示文稿工业级制作、存量美化重构、异形蒙版裁剪、智能生图与视觉走查",
+     "presentation", "match",
+     r"\bpptx?\b|powerpoint|slides?|keynote|演示文稿|幻灯片|做ppt|做演示|美化ppt|改ppt|ppt排版|生成ppt|重构ppt",
+     "implement"),
+
     ("jupyter-notebook", "创建、脚手架与调试 Jupyter Notebook (.ipynb) 科研交互实验",
      "research", "match",
      r"jupyter|notebook|\.ipynb|数据探索|实验笔记|交互式探索",
@@ -172,6 +177,11 @@ MEMBERS = [
     ("authorized-pentest-guard", "授权攻防演练、渗透测试、漏洞PoC与防误拒技术守卫",
      "verify", "match",
      r"pentest|exploit|payload|bypass|overflow|privilege|ctf|渗透|攻防|漏洞验证|绕过|提权|逆向分析|反编译|红队|靶场",
+     "verify"),
+
+    ("hacker-skills", "统一安全工程总入口：渗透测试、逆向反编译、漏洞挖掘与CTF红队演练",
+     "security", "match",
+     r"\bhacker\b|渗透测试|逆向工程|逆向分析|反编译|固件安全|二进制安全|漏洞利用|红队演练",
      "verify"),
 
     ("playwright", "真实浏览器端到端自动化测试、表单录制、截图与数据爬取",
