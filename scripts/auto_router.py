@@ -71,6 +71,11 @@ MEMBERS = [
      r"memory.?guard|上下文压缩|边界防护|关键记忆|防遗忘|写入记忆|压缩保护",
      "manage"),
 
+    ("nm-skills", "多 Agent 原子任务排他认领、工作台账与并发防撞协调 (v2.0)",
+     "coordination", "match",
+     r"nm-skills|\bnm\b|牛马|工作登记|agent台账|台账|任务认领|并发冲突|重复任务|排他锁|谁在做什么|agent_word",
+     "manage"),
+
     # 1. 技能供应链
     ("find-skills", "通过 npx skills (skills.sh) 快速检索并立即安装技能",
      "acquire", "match",
