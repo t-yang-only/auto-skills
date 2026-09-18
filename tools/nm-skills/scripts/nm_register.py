@@ -593,13 +593,18 @@ def clean_stale_locks(root: Path) -> int:
 # ==============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="NM-Skills 多 Agent 原子任务认领与互斥台账中枢 (v2.0)")
-    parser.add_argument("--root", default=None, help="工程根目录，默认当前目录")
+    root_parser = argparse.ArgumentParser(add_help=False)
+    root_parser.add_argument("--root", default=None, help="工程根目录，默认当前目录")
+
+    parser = argparse.ArgumentParser(
+        description="NM-Skills 多 Agent 原子任务认领与互斥台账中枢 (v2.0)",
+        parents=[root_parser]
+    )
 
     subparsers = parser.add_subparsers(dest="action", help="选择动作")
 
     # 1. claim 任务认领
-    p_claim = subparsers.add_parser("claim", help="原子认领任务并加排他锁")
+    p_claim = subparsers.add_parser("claim", parents=[root_parser], help="原子认领任务并加排他锁")
     p_claim.add_argument("--task", required=True, help="任务目标描述")
     p_claim.add_argument("--task-id", default=None, help="指定任务唯一标识 (如 TASK-001，缺省自动生成)")
     p_claim.add_argument("--client", default="CODE", help="客户端标识 (CODE/CUR/DB/DS)")
@@ -608,7 +613,7 @@ def main():
     p_claim.add_argument("--force", action="store_true", help="强制抢占接管任务")
 
     # 2. done 任务完成
-    p_done = subparsers.add_parser("done", help="完成任务并释放排他锁")
+    p_done = subparsers.add_parser("done", parents=[root_parser], help="完成任务并释放排他锁")
     p_done.add_argument("--task-id", required=True, help="任务唯一标识")
     p_done.add_argument("--changes", required=True, help="具体修改内容")
     p_done.add_argument("--api", default="", help="API 变更")
@@ -618,15 +623,15 @@ def main():
     p_done.add_argument("--tools", default="", help="调用的工具")
 
     # 3. release 释放任务
-    p_release = subparsers.add_parser("release", help="放弃或提前释放任务锁")
+    p_release = subparsers.add_parser("release", parents=[root_parser], help="放弃或提前释放任务锁")
     p_release.add_argument("--task-id", required=True, help="任务唯一标识")
     p_release.add_argument("--reason", default="手动放弃", help="释放原因")
 
     # 4. board 查看看板
-    subparsers.add_parser("board", help="查看实时任务认领看板")
+    subparsers.add_parser("board", parents=[root_parser], help="查看实时任务认领看板")
 
     # 5. gc 清理僵尸锁
-    subparsers.add_parser("gc", help="清理超时过期僵尸任务锁")
+    subparsers.add_parser("gc", parents=[root_parser], help="清理超时过期僵尸任务锁")
 
     args = parser.parse_args()
     root = Path(args.root).resolve() if args.root else Path.cwd()

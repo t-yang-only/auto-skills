@@ -444,8 +444,21 @@ def cmd_list():
 
 
 def main():
-    ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版)")
-    ap.add_argument("query", nargs="*", help="任务描述文本")
+    # 优先检测是否为 nm-skills 多 Agent 协同排他子命令 (claim / done / board / release / gc)
+    if len(sys.argv) > 1 and sys.argv[1] in ("claim", "done", "board", "release", "gc"):
+        try:
+            import nm_register
+            return nm_register.main()
+        except ImportError:
+            try:
+                from tools.nm_skills.scripts import nm_register
+                return nm_register.main()
+            except Exception as e:
+                print(f"[ERROR] 调用 nm-skills 协同模块失败: {e}")
+                sys.exit(1)
+
+    ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版，深度融合 nm-skills 协同排他锁)")
+    ap.add_argument("query", nargs="*", help="任务描述文本，或协同子命令 (claim/done/board/release/gc)")
     ap.add_argument("--mode", choices=["auto", "fast", "full"], default="auto", help="路由模式：auto 自动评估复杂度，fast 极速省Token，full 完整SDLC")
     ap.add_argument("--list", action="store_true", help="列出所有收编成员与其自适应解析状态")
     args = ap.parse_args()
@@ -454,7 +467,7 @@ def main():
         sys.exit(cmd_list())
 
     if not args.query:
-        ap.error("请提供任务描述或传入 --list 查看支持的成员技能")
+        ap.error("请提供任务描述，或传入 --list 查看支持的成员技能，或使用 claim/done/board 协同子命令")
 
     plan = build_smart_plan(" ".join(args.query), mode=args.mode)
     print(json.dumps(plan, ensure_ascii=False, indent=2))

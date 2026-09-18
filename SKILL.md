@@ -1,40 +1,49 @@
 ---
 name: auto-skills
 description: >
-  Next-Gen AI Development Workflow Orchestrator & Multi-Skill Router (v2.5 Flagship).
-  Bundles 25 top-tier universal workflow skills with zero-missing multi-root fallback resolution and full SDLC lifecycle stage routing:
-  using-superpowers (baseline pre-flight), grill-me (Socratic requirement stress-test), brainstorming (intent/design hard gate),
+  Next-Gen AI Development Workflow Orchestrator, Multi-Skill Router & Multi-Agent Coordination Hub (v3.0 Flagship).
+  深度融合多 Agent 原子任务认领与排他工作台账中枢 (nm-skills 牛马协同中枢)：原生提供任务独占锁 (claim)、租约排他锁 (Lease with TTL)、严格单调防撞编号分配器、实时任务看板 (board) 与工作日志自动归档，彻底根除多 Agent 并发抢跑同一任务、序号同号冲突与文件覆盖痛点。
+  Bundles 27 top-tier universal workflow skills with zero-missing multi-root fallback resolution and full SDLC lifecycle stage routing:
+  using-superpowers (baseline pre-flight), nm-skills (atomic task claim & mutual exclusion ledger), grill-me (Socratic requirement stress-test), brainstorming (intent/design hard gate),
   codebase-onboarding (unfamiliar repo recon), markdown-viewer (architectural diagrams), ponytail (YAGNI minimal coding),
   test-driven-development (TDD red-green-refactor), systematic-debugging (4-phase root cause), code-review (5-axis QA),
   cli-creator (CLI generator), jupyter-notebook (interactive research), security-best-practices (vulnerability & baseline audit),
-  playwright (E2E browser testing), gh-fix-ci (GitHub Actions auto-fix), find-skills / skill-discovery / skillnet (skill supply chain),
-  skills-manager-cli (multi-tool symlink management), codex-memory-guard & memory-consolidate (memory defense),
-  codex-project-closeout & team-handoff (closeout & handoff), talk-like-girlfriend, caveman, and no-negative-echo.
+  authorized-pentest-guard (offensive-defensive security guard), playwright (E2E browser testing), gh-fix-ci (GitHub Actions auto-fix),
+  find-skills / skill-discovery / skillnet (skill supply chain), skills-manager-cli (multi-tool symlink management),
+  codex-memory-guard & memory-consolidate (memory defense), codex-project-closeout & team-handoff (closeout & handoff),
+  talk-like-girlfriend, caveman, and no-negative-echo.
+  当用户提到 auto-skills、nm-skills、牛马skills、工作登记、任务认领、排他锁、agent_word、多Agent协作、防止重复做任务时使用。
 metadata:
-  short-description: 全能旗舰级 AI 研发全生命周期技能总控中枢 (v2.5 聚合 25 大顶流通用技能)
+  short-description: 全能旗舰级 AI 研发全生命周期与多 Agent 协同排他台账总控中枢 (v3.0 深度融合 nm-skills)
 ---
 
-# auto-skills · 全能旗舰级 AI 研发技能总控中枢 (v2.5)
+# auto-skills · 全能旗舰级 AI 研发与多 Agent 协同中枢 (v3.0)
 
-`auto-skills` 是面向复杂软件工程与 AI 自治研发的 **端到端工作流调度与技能编排总控引擎**。
+`auto-skills` 是面向复杂软件工程、AI 自治研发与多 Agent 协同的 **端到端工作流调度、排他防撞与技能编排总控引擎**。
 
-它彻底终结了以往 Agent 技能零散碎片化、盲目动手写代码、缺乏质量门禁与跨轮遗忘的行业痛点。在母 Skill 架构下，**自洽收拢了 25 个顶流高星通用 Agent Skills**，打通了从「前置自愈 -> 系统认知 -> 需求施压 -> 设计门禁 -> TDD/YAGNI实施 -> 根因调试 -> 5轴代码严审 -> 安全防线 -> 自动化测试 -> 交付收尾与记忆归档」的工业级软件研发闭环。
+它深度融合了 **多 Agent 牛马协同台账 (nm-skills v2.0)**，自洽收拢了 **27 个顶流高星通用 Agent Skills**，不仅打通了从「前置自愈 -> 系统认知 -> 需求施压 -> 设计门禁 -> TDD/YAGNI实施 -> 根因调试 -> 5轴代码严审 -> 安全防线 -> 自动化测试 -> 交付收尾与记忆归档」的完整工业级生命周期闭环，更彻底解决了**多 Agent 在同一工程下并发作业时抢跑同一任务、编号同号冲突与代码互撞覆盖**的行业顽疾！
 
 ---
 
-## 1. 核心架构与 25 大内置成员 (Unified Architecture)
+## 1. 核心架构 (Unified Architecture)
 
 母 Skill 内部 100% 自洽收拢：
 
 ```text
 auto-skills/
-├── SKILL.md                # 全局调度规范与生命周期契约
+├── SKILL.md                # 全局调度规范、多 Agent 协同契约与生命周期规则
 ├── README.md               # 开源项目全景说明文档
 ├── LICENSE                 # MIT 开源协议
-├── .gitignore              # Git 过滤规则
+├── .gitignore              # Git 过滤规则 (包含 .evolution 私有进化区保护)
 ├── scripts/
-│   └── auto_router.py      # v2.5 智能多根自适应寻址与 SDLC 阶段路由器
-├── tools/                  # 内部完全自洽收拢的 25 大核心通用工具集
+│   ├── auto_router.py      # v3.0 智能多根自适应寻址、任务分级与协同命令分发器
+│   ├── nm_register.py      # 原生内置：多 Agent 原子任务认领、排他租约锁与台账维护
+│   ├── notify_push.py      # 多渠道消息同步中心 (支持 Server酱/企微/飞书/钉钉等8大渠道)
+│   ├── git_push_notify.py  # 自动化 Git 提交、推送与多渠道广播联动
+│   ├── obsidian_bridge.py  # Obsidian 本地/在线双模知识库自适应同步桥梁
+│   ├── init_evolution_vault.py # 个人私有双轨进化仓库初始化向导
+│   └── tool_onboarder.py   # 新技能自动接入、元数据萃取与注册台账维护
+├── tools/                  # 内部完全自洽收拢的 27 大核心通用工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（绝对第0步）
 │   ├── skills-manager-cli/ # 【环境管理】驱动 skm 完成跨环境软链接修复与纳管
 │   ├── codex-memory-guard/ # 【记忆守护】跨轮任务边界防护与关键记忆写入守卫
@@ -63,34 +72,73 @@ auto-skills/
 │   ├── caveman/            # 【极限紧凑】洞穴人极限 token 压缩模式（节约 65% tokens）
 │   └── no-negative-echo/   # 【干净输出】去除纠错痕迹与负面回声，保持交付纯粹
 └── references/
-    └── capability-map.md   # 核心成员能力全景映射表与冲突优先级
+    └── capability-map.md   # 27 大成员能力全景映射表与冲突优先级
 ```
 
 ---
 
-## 2. SDLC 全生命周期阶段感知流水线
+## 2. 深度融合：多 Agent 原子任务认领与排他工作台账 (nm-skills)
 
-| 阶段代码 | 阶段名称 | 负责成员 | 核心硬规则与验收门禁 |
-|---|---|---|---|
-| `pre-flight` | **前置侦测** | `using-superpowers` | **绝对第 0 步**：在采取任何行动或回复前，必须全盘扫描可用技能 |
-| `manage` | **环境与记忆** | `skills-manager-cli` / `memory-guard` | 工具链损坏时优先自愈，跨轮任务前锁定边界防遗忘 |
-| `acquire` | **能力获取** | `find-skills` / `discovery` / `skillnet` | 缺失必要能力时，即时安装、对比评估或沉淀提炼技能 |
-| `understand` | **系统侦查** | `codebase-onboarding` | 接触陌生项目时，先出架构图与上手指南，禁止盲目碰核心代码 |
-| `clarify` | **需求施压** | `grill-me` | 对模糊方案进行极限反例质询，深挖逻辑漏洞与隐蔽假设 |
-| `design` | **设计门禁** | `brainstorming` / `markdown-viewer` | **硬门禁**：在用户明确批准设计方案前，严禁写代码或建脚手架 |
-| `implement` | **极简实施** | `tdd` / `ponytail` / `cli-creator` / `jupyter` | 遵循 TDD 红绿循环与 YAGNI：能用 1 行不用 50 行，标准库优先 |
-| `verify` | **调试严审** | `debugging` / `code-review` / `security` / `playwright` / `ci` | 4步根因调试、5轴代码走查、安全扫描与端到端 UI 验证 |
-| `handoff` | **交付归档** | `closeout` / `team-handoff` / `memory-consolidate` | 产出交付物核验清单、交接文档与长期记忆合并归档 |
-| `persona` | **表达图层** | `girlfriend` / `caveman` / `no-negative-echo` | 显式口令控制表达语气或极限压缩 token，与底层技术逻辑严格解耦 |
+在同一工程目录下，当多个 Agent（Codex、Cursor、DSH、Claude、WorkBuddy、豆包）并行协作时，**必须执行原子排他认领**：
+
+### 核心机制：
+1. **排他租约锁 (Lease with TTL)**：基于底层原子排他锁，任何 Agent 在开始修改代码前必须成功 `claim`。若已被其他活跃 Agent 认领，立即硬性拦截并报告持有者及剩余租约，**彻底防止两个 Agent 同时进行同一任务**；
+2. **严格单调单向编号**：分配 Agent 编号 (`NM-<CLIENT>-XXX`) 时使用互斥锁保护，彻底根除编号重复冲突；
+3. **文件防撞预警**：认领时声明涉及的文件；若检测到其他进行中任务正在修改重叠文件，立即预警拦截；
+4. **统一台账看板**：自动在工程根目录维护 `agent_word/`，包含 `任务认领表.md`（实时看板）、`工作登记表.md`（流水总表）、`工作日志.md`（详细复盘日志）等。
+
+### 常用原生命令：
+```bash
+# 1. 任务认领 (动手前必做：成功加锁并分配严格递增编号；被抢占则强行拦截)
+python scripts/auto_router.py claim --task-id "TASK-AUTH-01" --task "重构系统认证逻辑" --client CODE --files "auth.py"
+
+# 2. 查看看板 (查看当前谁在执行什么任务、租约有效期)
+python scripts/auto_router.py board
+
+# 3. 任务完成 (释放排他锁，追加详细工作日志与技能建议)
+python scripts/auto_router.py done --task-id "TASK-AUTH-01" --changes "已完成认证模块重构" --files "auth.py"
+
+# 4. 放弃/转交任务
+python scripts/auto_router.py release --task-id "TASK-AUTH-01" --reason "等待前置PR合入"
+
+# 5. 清理超时僵尸锁
+python scripts/auto_router.py gc
+```
 
 ---
 
-## 3. 工作流快速运行
+## 3. SDLC 全生命周期阶段感知流水线
+
+调度引擎会根据任务意图自动挂载对应生命周期阶段：
+
+1. `pre-flight` (前置侦测) -> `using-superpowers`：全盘扫描适用技能，声明行动前提。
+2. `manage` (环境与协同) -> `skills-manager-cli` / `codex-memory-guard` / `nm-skills`：软链修复、记忆防跨轮遗忘、多 Agent 任务排他认领与工作台账。
+3. `acquire` (能力供应链) -> `find-skills` / `skill-discovery` / `skillnet`：自动检索、深度评估或从代码逆向沉淀技能。
+4. `understand` (系统侦查) -> `codebase-onboarding`：生成架构拓扑与上手指南。
+5. `clarify` (极限施压) -> `grill-me`：苏格拉底式反向质询，深挖需求边界漏洞。
+6. `design` (方案门禁) -> `brainstorming` / `markdown-viewer`：**硬性门禁**，设计未获批准严禁写代码。
+7. `implement` (TDD极简实施) -> `test-driven-development` / `ponytail` / `cli-creator` / `jupyter`：红绿测试驱动开发，YAGNI 极简编码。
+8. `verify` (根因排错与安全严审) -> `systematic-debugging` / `code-review` / `security` / `authorized-pentest-guard` / `playwright` / `ci`：4步根因调试、5轴严审、漏洞加固与端到端 UI 测试。
+9. `handoff` (交付收尾与归档) -> `closeout` / `team-handoff` / `memory-consolidate`：交付核验与记忆整理。
+
+---
+
+## 4. 极速模式 (Fast-Path) 与 Token 优化
+
+为防止微小任务或查询类任务浪费 Token，`auto-skills` 搭载了三档自适应路由：
+- `--mode auto` (默认)：智能判定任务复杂度。小任务自动走 Fast-Path（仅调用 1 个最关键技能），大任务拉起完整 SDLC；
+- `--mode fast`：强制极速单点执行，节省 90%+ 上下文 Token；
+- `--mode full`：强制拉起全套工业级流程。
 
 ```bash
-# 查看 25 大成员与自适应解析状态
-python scripts/auto_router.py --list
-
-# 任务阶段自动编排
-python scripts/auto_router.py "接手陌生项目，画出架构图，需求施压后先写测试再极简实施，最后进行5轴代码审查与CI修复"
+# 极速排错示例
+python scripts/auto_router.py --mode fast "修复 auth.py 中的 SyntaxError"
 ```
+
+---
+
+## 5. 多渠道消息同步与 Obsidian 在线知识库
+
+- **多渠道消息聚合广播** (`scripts/notify_push.py`)：支持配置 Server酱 Turbo (微信)、企业微信、飞书、钉钉 (带签名)、PushPlus、Telegram、Bark、自定义 Webhook，任务完成或 Git 提交时并行广播；
+- **Obsidian 本地/在线知识库双模桥梁** (`scripts/obsidian_bridge.py`)：支持配置在线端点与访问密钥（均可留空），首次运行自动探测本地/在线环境并决定最优同步方式；
+- **双轨私有进化区** (`.evolution/`)：独立 Git 仓库保护个人偏好与敏感凭据，上游主库更新时零覆盖、零污染。
