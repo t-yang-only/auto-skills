@@ -35,9 +35,16 @@ auto-skills/
 ├── README.md               # 开源项目全景说明文档
 ├── LICENSE                 # MIT 开源协议
 ├── .gitignore              # Git 过滤规则 (包含 .evolution 私有进化区保护)
+├── config/                 # 统一配置中心 (默认下载时配置细节为空)
+│   ├── config.yaml         # 活跃配置文件 (默认空配置模版)
+│   └── config.example.yaml # 完整配置注释范例文本
 ├── scripts/
-│   ├── auto_router.py      # v3.0 智能多根自适应寻址、任务分级与协同命令分发器
+│   ├── auto_router.py      # v3.0 智能多根自适应寻址、任务分级、协同命令与引导分发器
+│   ├── config_manager.py   # 统一全局配置读写与多层自适应合并引擎
+│   ├── wizard_setup.py     # 首次调用配置向导与跨 Agent 自动连接引擎
+│   ├── pull_persona_traits.py # 从知识库自适应拉取女友人格定义与温情特性
 │   ├── nm_register.py      # 原生内置：多 Agent 原子任务认领、排他租约锁与台账维护
+│   ├── sync_evolution.py   # 用户个人私有 Git 仓库一键同步与推送引擎
 │   ├── notify_push.py      # 多渠道消息同步中心 (支持 Server酱/企微/飞书/钉钉等8大渠道)
 │   ├── git_push_notify.py  # 自动化 Git 提交、推送与多渠道广播联动
 │   ├── obsidian_bridge.py  # Obsidian 本地/在线双模知识库自适应同步桥梁
@@ -95,14 +102,51 @@ python scripts/auto_router.py claim --task-id "TASK-AUTH-01" --task "重构系�
 # 2. 查看看板 (查看当前谁在执行什么任务、租约有效期)
 python scripts/auto_router.py board
 
-# 3. 任务完成 (释放排他锁，追加详细工作日志与技能建议)
+# 3. 文件冲突前置检测 (检查文件是否被其他活跃 Agent 锁定占用)
+python scripts/auto_router.py check-file --files "auth.py,router.py"
+
+# 4. 长任务租约续期 (为当前正在进行的任务延长租约时长)
+python scripts/auto_router.py renew --task-id "TASK-AUTH-01" --extend 60
+
+# 5. 查看身份与锁状态感知
+python scripts/auto_router.py whoami
+
+# 6. 任务完成 (释放排他锁，追加详细工作日志与技能建议)
 python scripts/auto_router.py done --task-id "TASK-AUTH-01" --changes "已完成认证模块重构" --files "auth.py"
 
-# 4. 放弃/转交任务
+# 7. 放弃/转交任务
 python scripts/auto_router.py release --task-id "TASK-AUTH-01" --reason "等待前置PR合入"
 
-# 5. 清理超时僵尸锁
+# 8. 清理超时僵尸锁
 python scripts/auto_router.py gc
+
+# 9. 查看最近工作登记流水
+python scripts/auto_router.py log --limit 15
+```
+
+---
+
+## 3. 全局配置中心与首次 Agent 启动引导 (Config & Wizard)
+
+在 `config/` 目录下提供全局配置能力（首次下载时所有细节配置项均为空）：
+- **配置文件**：`config/config.yaml`（活跃配置模板）与 `config/config.example.yaml`（注释范本）；
+- **首次强制引导门禁**：任何 AI Agent 首次调用 `auto-skills` 无论执行什么任务，系统都会优先辅助用户完成基础配置：
+  1. 是否自动检查并下载公开 `auto-skills` 更新；
+  2. 是否永远默认启用 `nm-skills` 在项目目录下建立执行登记（`agent_word/`）；
+  3. 多渠道推送凭据（Server酱、企业微信、飞书、钉钉等）；
+  4. 是否默认启用女朋友人格模式，以及是否从本地/在线知识库拉取人格温情特性；
+  5. 是否建立并同步到个人私有 Git 进化仓库（`skills-Management`）；
+- **跨 Agent 自动连接与镜像**：配置完成后自动扫描本机所有 Agent 技能目录（Codex, Agents, DSH, WorkBuddy, Claude Code, Cursor 等），一键建立互联同步。
+
+```bash
+# 启动配置向导
+python scripts/auto_router.py setup
+
+# 扫描并连接本机所有 Agent 环境
+python scripts/auto_router.py connect-agents
+
+# 查看当前配置与 Agent 互联状态
+python scripts/wizard_setup.py --status
 ```
 
 ---

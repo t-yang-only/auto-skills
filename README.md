@@ -35,9 +35,16 @@ auto-skills/
 ├── README.md               # 项目主说明文档
 ├── LICENSE                 # MIT 开源协议
 ├── .gitignore              # Git 忽略配置 (包含 .evolution 私有进化区保护)
+├── config/                 # 统一配置目录 (首次下载所有细节字段全为空)
+│   ├── config.yaml         # 默认空白配置文件模板
+│   └── config.example.yaml # 完整配置说明与注释范本
 ├── scripts/
 │   ├── auto_router.py      # v3.0 智能多根自适应寻址、任务分级与协同命令分发器
+│   ├── config_manager.py   # 全局配置管理与双轨自适应合并引擎
+│   ├── wizard_setup.py     # 首次调用配置向导与跨 Agent 自动连接集成器
+│   ├── pull_persona_traits.py # 从知识库自适应拉取女友人格定义与温情特性
 │   ├── nm_register.py      # 原生内置：多 Agent 原子任务认领、排他租约锁与台账维护
+│   ├── sync_evolution.py   # 用户个人私有 Git 仓库自动同步与推送引擎
 │   ├── notify_push.py      # 多渠道消息同步中心 (支持 8 大主流推送渠道)
 │   ├── git_push_notify.py  # 自动化 Git 提交、推送与多渠道广播联动
 │   ├── obsidian_bridge.py  # Obsidian 本地/在线双模知识库自适应同步桥梁
@@ -88,14 +95,48 @@ python scripts/auto_router.py claim --task-id "TASK-AUTH-01" --task "重构系�
 # 2. 查看看板 (查看当前谁在执行什么任务)
 python scripts/auto_router.py board
 
-# 3. 任务完成 (释放排他锁，追加详细工作日志与技能建议)
+# 3. 文件冲突前置检测 (检查文件是否被其他活跃 Agent 锁定占用)
+python scripts/auto_router.py check-file --files "auth.py,router.py"
+
+# 4. 长任务租约续期 (为当前正在进行的任务延长租约时长)
+python scripts/auto_router.py renew --task-id "TASK-AUTH-01" --extend 60
+
+# 5. 查看身份与当前锁感知
+python scripts/auto_router.py whoami
+
+# 6. 任务完成 (释放排他锁，追加详细工作日志与技能建议)
 python scripts/auto_router.py done --task-id "TASK-AUTH-01" --changes "已完成认证模块重构" --files "auth.py"
 
-# 4. 释放/放弃任务 (中途放弃或转交)
+# 7. 释放/放弃任务 (中途放弃或转交)
 python scripts/auto_router.py release --task-id "TASK-AUTH-01" --reason "前置依赖未就绪"
 
-# 5. 清理超时僵尸锁
+# 8. 清理超时僵尸锁
 python scripts/auto_router.py gc
+
+# 9. 查看最近工作日志
+python scripts/auto_router.py log --limit 15
+```
+
+---
+
+## 🛠️ 全局配置中心与首次 Agent 启动引导 (Config & Wizard)
+
+在 `config/` 目录下提供全局配置能力（默认下载时所有细节字段全为空）：
+- **空配置模板**：`config/config.yaml` 与 `config/config.example.yaml`；
+- **首次调用引导门禁**：任何 Agent 首次运行无论执行何种指令，系统均会优先辅助用户完成基础配置：
+  1. 是否自动检查并下载公开 `auto-skills` 更新；
+  2. 是否永远默认启用 `nm-skills` 在项目目录下建立执行登记（`agent_word/`）；
+  3. 多渠道推送凭据（Server酱、企业微信、飞书、钉钉等）；
+  4. 是否默认启用女朋友人格模式，若启用将自动从知识库（Obsidian/在线知识库）拉取人格温情特性；
+  5. 是否建立并绑定至个人私有 Git 进化仓库（`skills-Management`）；
+- **跨 Agent 智能扫描与连接**：配置完成后自动扫描本机所有 Agent 技能目录并建立互联同步。
+
+```bash
+# 启动配置向导
+python scripts/auto_router.py setup
+
+# 扫描并连接本机所有 Agent 环境
+python scripts/auto_router.py connect-agents
 ```
 
 ---
