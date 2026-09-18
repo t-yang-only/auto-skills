@@ -231,17 +231,20 @@ MEMBERS = [
      "persona"),
 ]
 
+import config_manager
+
 STAGE_ORDER = {
     "pre-flight": 0,
-    "manage": 1,
-    "acquire": 2,
-    "understand": 3,
-    "clarify": 4,
-    "design": 5,
-    "implement": 6,
-    "verify": 7,
-    "handoff": 8,
-    "persona": 9
+    "coordination": 1,
+    "manage": 2,
+    "acquire": 3,
+    "understand": 4,
+    "clarify": 5,
+    "design": 6,
+    "implement": 7,
+    "verify": 8,
+    "handoff": 9,
+    "persona": 10
 }
 
 PERSONA_OFF = re.compile(r"/gf\s+off|/caveman\s+off|normal mode|be serious|退出.{0,2}(女友|洞穴人|人格)|正常模式", re.I)
@@ -403,12 +406,29 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
             "path": str(path_obj) if path_obj else None
         })
 
+    # 检查是否永远默认启用 nm-skills 协同排他台账 (Flagship Priority)
+    always_nm = config_manager.get_value("nm_skills.always_enable_project_ledger", True)
+    if always_nm:
+        if not any(s["skill"] == "nm-skills" for s in selected):
+            nm_path, nm_origin = resolve_member_path("nm-skills")
+            selected.append({
+                "skill": "nm-skills",
+                "label": "【旗舰协同门禁】多 Agent 原子任务认领、租约排他防撞与项目台账 (agent_word/)",
+                "category": "handoff",
+                "stage": "coordination",
+                "mode": "baseline",
+                "why": "协同铁律：修改代码前必须通过 auto_router.py claim 抢占排他锁，杜绝多 Agent 任务冲突与同号覆盖",
+                "installed": nm_path is not None,
+                "origin": nm_origin,
+                "path": str(nm_path) if nm_path else None
+            })
+
     # 按生命周期阶段排序
-    selected.sort(key=lambda s: (-1 if s["mode"] == "baseline" else STAGE_ORDER.get(s["stage"], 8)))
+    selected.sort(key=lambda s: (-1 if s["mode"] == "baseline" and s["stage"] == "pre-flight" else (0 if s["stage"] == "coordination" else STAGE_ORDER.get(s["stage"], 8))))
     for i, s in enumerate(selected):
         s["order"] = i
 
-    non_base = [s for s in selected if s["mode"] != "baseline"]
+    non_base = [s for s in selected if s["stage"] not in ("pre-flight", "coordination")]
     primary = non_base[0]["skill"] if non_base else "using-superpowers"
 
     notes = []
@@ -420,11 +440,25 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
     if missing:
         notes.append(f"发现未安装成员: {missing}，可通过 tools/ 下收拢组件或 skm 纳管补全")
 
-    return {
+    plan_result = {
         "query": q,
         "task_tier": "FULL_SDLC",
         "tier_reason": tier_reason,
         "token_saving_mode": False,
+        "coordination": {
+            "engine": "nm-skills v2.5 Flagship (牛马原子排他防撞引擎)",
+            "always_enabled": always_nm,
+            "board_file": "agent_word/任务认领表.md",
+            "ledger_file": "agent_word/工作登记表.md",
+            "rule": "【原子互斥保障】任何 Agent 动手写代码前必须运行 claim 获得排他锁；任务完成后运行 done 释放锁并归档日志",
+            "quick_commands": {
+                "claim": "python scripts/auto_router.py claim --task-id <ID> --task <NAME> --files <FILES>",
+                "board": "python scripts/auto_router.py board",
+                "check_file": "python scripts/auto_router.py check-file --files <FILES>",
+                "renew": "python scripts/auto_router.py renew --task-id <ID> --extend 30",
+                "done": "python scripts/auto_router.py done --task-id <ID> --changes <CHANGES> --files <FILES>"
+            }
+        },
         "pipeline": [
             {
                 "order": s["order"],
@@ -443,6 +477,7 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
         "advisory_notes": notes,
         "execution_rule": "严格按照 pipeline 顺序依序执行各成员技能规范，各成员 SKILL.md 为单一事实源。"
     }
+    return plan_result
 
 
 def cmd_list():
@@ -471,8 +506,28 @@ def cmd_list():
 
 
 def main():
-    # 1. 优先检测是否为 nm-skills 多 Agent 协同排他子命令 (claim / done / board / release / gc / renew / check-file)
-    if len(sys.argv) > 1 and sys.argv[1] in ("claim", "done", "board", "release", "gc", "renew", "check-file"):
+    # 0. 首次启动前置引导检查：确保任意 Agent 首次调用时辅助用户完成基础配置
+    if not config_manager.is_configured():
+        if len(sys.argv) > 1 and sys.argv[1] in ("setup", "--help", "-h"):
+            import wizard_setup
+            return wizard_setup.main()
+        else:
+            print("\n" + "=" * 72)
+            print("⚡ 【首次调用向导】检测到 auto-skills 尚未完成初始配置！")
+            print("   为确保多 Agent 协同防撞与个人私有资产隔离，系统正自动启动首次配置向导...")
+            print("=" * 72)
+            import wizard_setup
+            wizard_setup.run_auto_setup(
+                always_nm=True,
+                auto_update=True,
+                girlfriend_mode=False,
+                kb_sync_gf=True,
+                private_git="https://github.com/t-yang-only/skills-Management.git",
+                connect_all_agents=True
+            )
+
+    # 1. 优先检测是否为 nm-skills 多 Agent 协同排他子命令
+    if len(sys.argv) > 1 and sys.argv[1] in ("claim", "done", "board", "release", "gc", "renew", "check-file", "whoami", "log"):
         try:
             import nm_register
             return nm_register.main()
@@ -484,7 +539,27 @@ def main():
                 print(f"[ERROR] 调用 nm-skills 协同模块失败: {e}")
                 sys.exit(1)
 
-    # 2. 检测是否为个人私有进化同步子命令 (sync-private / private-sync)
+    # 2. 检测是否为配置引导子命令 (setup / wizard)
+    if len(sys.argv) > 1 and sys.argv[1] in ("setup", "wizard"):
+        try:
+            import wizard_setup
+            sys.argv.pop(1)
+            return wizard_setup.main()
+        except Exception as e:
+            print(f"[ERROR] 调用配置向导失败: {e}")
+            sys.exit(1)
+
+    # 3. 检测是否为跨 Agent 连接子命令 (connect-agents)
+    if len(sys.argv) > 1 and sys.argv[1] in ("connect-agents", "agent-sync"):
+        try:
+            import wizard_setup
+            wizard_setup.connect_agents()
+            sys.exit(0)
+        except Exception as e:
+            print(f"[ERROR] 跨 Agent 连接失败: {e}")
+            sys.exit(1)
+
+    # 4. 检测是否为个人私有进化同步子命令 (sync-private / private-sync)
     if len(sys.argv) > 1 and sys.argv[1] in ("sync-private", "private-sync"):
         try:
             import sync_evolution
@@ -495,7 +570,7 @@ def main():
             print(f"[ERROR] 调用私有同步模块失败: {e}")
             sys.exit(1)
 
-    # 3. 检测是否为技能自安装/纳管子命令 (install-skill / onboard-skill)
+    # 5. 检测是否为技能自安装/纳管子命令 (install-skill / onboard-skill)
     if len(sys.argv) > 1 and sys.argv[1] in ("install-skill", "onboard-skill"):
         try:
             import tool_onboarder
@@ -506,7 +581,7 @@ def main():
             sys.exit(1)
 
     ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版，深度融合 nm-skills 协同排他锁与私有 Git 同步)")
-    ap.add_argument("query", nargs="*", help="任务描述文本，或协同子命令 (claim/done/board/renew/sync-private/install-skill)")
+    ap.add_argument("query", nargs="*", help="任务描述文本，或协同子命令 (claim/done/board/renew/whoami/setup/connect-agents/sync-private/install-skill)")
     ap.add_argument("--mode", choices=["auto", "fast", "full"], default="auto", help="路由模式：auto 自动评估复杂度，fast 极速省Token，full 完整SDLC")
     ap.add_argument("--list", action="store_true", help="列出所有收编成员与其自适应解析状态")
     args = ap.parse_args()
