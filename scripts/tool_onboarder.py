@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-tool_onboarder.py — 新增工具与技能自动化纳管、收拢与台账登记引擎
-===================================================================
+tool_onboarder.py — 新增工具与技能自动化纳管、双轨归类与私有 Git 同步引擎 (v3.0)
+================================================================================
 核心功能：
-1. 规范收拢：任何新引入的 Skill 或工具必须统一保存在 `tools/<tool_name>/` 目录下；
-2. 自动元数据提取：解析工具的 `SKILL.md`（YAML frontmatter），提取 name, description, category；
-3. 台账注册：维护 `tools/registry.json` 权威台账，便于后续 Agent 瞬时检索与调用；
-4. 工具导入机制：
-   - 本地已有技能目录一键纳管复制并登记；
-   - 自动格式校验与必要辅助文件检查。
+1. 【双轨归类收拢】：
+   - `--target custom` (默认)：用户自行安装或动态生成的个性化技能，统一收拢到
+     `.evolution/custom_skills/<tool_name>/` 专属私有目录下，绝不上报公开仓库；
+   - `--target public`：官方或项目共享工具，收拢到 `tools/<tool_name>/` 目录下；
+2. 【自适应元数据萃取】：解析技能的 `SKILL.md`（YAML frontmatter），自动萃取名称、功能说明与类别；
+3. 【双轨台账维护】：
+   - 公共工具维护 `tools/registry.json`
+   - 私有自定义工具维护 `.evolution/custom_skills/registry.json`
+4. 【自动沉淀与私有 Git 联动推送 (Private Git Sync)】：
+   - 纳入私有技能后，自动调用 `sync_evolution.py` 执行 Git commit；
+   - 若用户配置了私有远端 Git 仓库，自动 push 到私有云端库，实现多机协同进化。
 
 用法示例：
-    # 扫描当前 tools/ 目录并全量刷新 registry.json
+    # 1. 纳管一个自安装或动态生成的技能至个人私有库，并自动触发私有 Git 提交推送
+    python scripts/tool_onboarder.py --add "C:/path/to/my-agent-skill"
+
+    # 2. 扫描所有工具并刷新台账 (同时刷新公共与私有)
     python scripts/tool_onboarder.py --scan
 
-    # 纳管外部某个新技能并自动登记
-    python scripts/tool_onboarder.py --add "C:/some/new-skill" --category "verify"
-
-    # 查看当前所有已登记工具清单
+    # 3. 查看当前已登记的工具与私有技能清单
     python scripts/tool_onboarder.py --list
 """
 
@@ -38,8 +43,12 @@ except Exception:
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = SCRIPT_DIR.parent
-TOOLS_DIR = SKILL_ROOT / "tools"
-REGISTRY_FILE = TOOLS_DIR / "registry.json"
+PUBLIC_TOOLS_DIR = SKILL_ROOT / "tools"
+PUBLIC_REGISTRY_FILE = PUBLIC_TOOLS_DIR / "registry.json"
+
+EVOLUTION_DIR = SKILL_ROOT / ".evolution"
+CUSTOM_SKILLS_DIR = EVOLUTION_DIR / "custom_skills"
+CUSTOM_REGISTRY_FILE = CUSTOM_SKILLS_DIR / "registry.json"
 
 
 def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
@@ -64,7 +73,6 @@ def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
                     k = k.strip()
                     v = v.strip().strip('"').strip("'")
                     if v in (">", "|", ""):
-                        # 收集后续缩进行
                         desc_parts = []
                         j = i + 1
                         while j < len(lines) and (lines[j].startswith("  ") or lines[j].strip() == ""):
@@ -86,60 +94,70 @@ def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
     return meta
 
 
-def scan_and_refresh_registry() -> Dict[str, Any]:
-    """
-    遍历 tools/ 目录，重建 tools/registry.json
-    """
-    TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+def infer_category(name: str) -> str:
+    name_lower = name.lower()
+    if any(w in name_lower for w in ("test", "debug", "ci", "review", "security", "pentest", "playwright")):
+        return "verify"
+    elif any(w in name_lower for w in ("find", "discover", "skillnet")):
+        return "acquire"
+    elif any(w in name_lower for w in ("ponytail", "cli", "jupyter", "tdd", "ppt", "slide")):
+        return "implement"
+    elif any(w in name_lower for w in ("brainstorm", "grill", "markdown")):
+        return "design"
+    elif any(w in name_lower for w in ("onboard", "codebase")):
+        return "understand"
+    elif any(w in name_lower for w in ("closeout", "handoff", "memory", "nm-")):
+        return "handoff"
+    elif any(w in name_lower for w in ("girlfriend", "caveman", "echo")):
+        return "persona"
+    return "general"
+
+
+def scan_dir(base_dir: Path, registry_file: Path, scope_name: str) -> Dict[str, Any]:
+    base_dir.mkdir(parents=True, exist_ok=True)
     registry = {
-        "version": "1.0.0",
-        "description": "auto-skills 统一内置工具与技能资产权威台账",
+        "version": "2.0.0",
+        "scope": scope_name,
         "tools_count": 0,
         "tools": {}
     }
 
-    subdirs = sorted([d for d in TOOLS_DIR.iterdir() if d.is_dir() and not d.name.startswith((".", "_"))])
+    subdirs = sorted([d for d in base_dir.iterdir() if d.is_dir() and not d.name.startswith((".", "_"))])
     for d in subdirs:
         skill_md = d / "SKILL.md"
         meta = parse_skill_metadata(skill_md) if skill_md.exists() else {"name": d.name, "description": f"目录 {d.name}"}
-
-        # 推断类别
-        name_lower = d.name.lower()
-        if any(w in name_lower for w in ("test", "debug", "ci", "review", "security", "pentest", "playwright")):
-            category = "verify"
-        elif any(w in name_lower for w in ("find", "discover", "skillnet")):
-            category = "acquire"
-        elif any(w in name_lower for w in ("ponytail", "cli", "jupyter", "tdd")):
-            category = "implement"
-        elif any(w in name_lower for w in ("brainstorm", "grill", "markdown")):
-            category = "design"
-        elif any(w in name_lower for w in ("onboard", "codebase")):
-            category = "understand"
-        elif any(w in name_lower for w in ("closeout", "handoff", "memory")):
-            category = "handoff"
-        elif any(w in name_lower for w in ("girlfriend", "caveman", "echo")):
-            category = "persona"
-        else:
-            category = "general"
+        cat = infer_category(d.name)
 
         registry["tools"][d.name] = {
             "name": meta.get("name", d.name),
             "description": meta.get("description", ""),
-            "category": category,
-            "relative_path": f"tools/{d.name}",
+            "category": cat,
+            "path": str(d),
             "has_skill_md": skill_md.exists()
         }
 
     registry["tools_count"] = len(registry["tools"])
-
-    REGISTRY_FILE.write_text(json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[OK] 工具台账已全量刷新: {REGISTRY_FILE} (共登记 {registry['tools_count']} 个工具)")
+    registry_file.write_text(json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8")
     return registry
 
 
-def add_external_tool(source_path: str, tool_name: Optional[str] = None, category: str = "general") -> bool:
+def scan_and_refresh_all() -> Dict[str, Any]:
+    """全量刷新公共工具与私有技能台账"""
+    pub = scan_dir(PUBLIC_TOOLS_DIR, PUBLIC_REGISTRY_FILE, "public_tools")
+    priv = scan_dir(CUSTOM_SKILLS_DIR, CUSTOM_REGISTRY_FILE, "custom_skills")
+    print(f"[OK] 工具台账已刷新: 公共工具 {pub['tools_count']} 个，私有技能 {priv['tools_count']} 个")
+    return {"public": pub, "custom": priv}
+
+
+def add_external_tool(
+    source_path: str,
+    tool_name: Optional[str] = None,
+    category: str = "general",
+    target: str = "custom",
+    auto_push_private: bool = True
+) -> bool:
     """
-    将外部工具/技能拷贝收拢到 tools/<tool_name> 并登记
+    将外部工具/自安装技能拷贝收拢到对应文件夹 (默认 custom 存入 .evolution/custom_skills/) 并自动同步私有 Git
     """
     src = Path(source_path).resolve()
     if not src.exists() or not src.is_dir():
@@ -147,50 +165,79 @@ def add_external_tool(source_path: str, tool_name: Optional[str] = None, categor
         return False
 
     name = tool_name or src.name
-    dest = TOOLS_DIR / name
+    if target == "public":
+        target_dir = PUBLIC_TOOLS_DIR / name
+        scope_desc = "公共工具区 (tools/)"
+    else:
+        CUSTOM_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+        target_dir = CUSTOM_SKILLS_DIR / name
+        scope_desc = "用户私有进化区 (.evolution/custom_skills/)"
 
-    if dest.exists():
-        print(f"[!] 目标工具已存在，正在执行覆盖更新: {dest}")
-        shutil.rmtree(dest, ignore_errors=True)
+    if target_dir.exists():
+        print(f"[!] 目标已存在，正在覆盖更新: {target_dir}")
+        shutil.rmtree(target_dir, ignore_errors=True)
 
-    print(f"[*] 正在将 {src} 收拢至 {dest} ...")
-    shutil.copytree(src, dest, ignore=shutil.ignore_patterns(".git", "__pycache__", ".vscode", "node_modules"))
+    print(f"[*] 正在将【{name}】收拢至 {scope_desc}: {target_dir} ...")
+    shutil.copytree(src, target_dir, ignore=shutil.ignore_patterns(".git", "__pycache__", ".vscode", "node_modules"))
 
-    # 检查是否缺失 SKILL.md
-    skill_md = dest / "SKILL.md"
+    # 检查 SKILL.md
+    skill_md = target_dir / "SKILL.md"
     if not skill_md.exists():
-        print(f"[!] 检测到 {name} 缺失 SKILL.md，自动生成标准规范模板...")
-        skill_md.write_text(f"""---\nname: {name}\ndescription: Auto-onboarded tool {name}\n---\n\n# {name}\n\nAuto-registered tool located in auto-skills/tools/{name}.\n""", encoding="utf-8")
+        print(f"[!] 检测到缺失 SKILL.md，自动生成标准契约模板...")
+        skill_md.write_text(f"""---\nname: {name}\ndescription: Auto-onboarded skill {name}\n---\n\n# {name}\n\nAuto-onboarded skill in {scope_desc}.\n""", encoding="utf-8")
 
-    # 重新生成注册表
-    scan_and_refresh_registry()
-    print(f"[OK] 工具【{name}】已成功收拢并登记在 auto-skills 资产库中！")
+    # 刷新台账
+    scan_and_refresh_all()
+    print(f"[OK] 技能【{name}】已成功归类并登记入库！")
+
+    # 若为用户私有技能，自动触发个人私有 Git 仓库提交与推送！
+    if target == "custom" and auto_push_private:
+        print("[*] 正在触发用户个人私有进化仓库自动同步与推送...")
+        try:
+            from sync_evolution import sync_private_evolution
+            sync_private_evolution(message=f"feat: onboard custom skill [{name}]", notify=True)
+        except Exception as e:
+            print(f"[!] 私有 Git 同步提示: {e}")
+
     return True
 
 
 def main():
-    parser = argparse.ArgumentParser(description="auto-skills 工具纳管与注册台账引擎")
-    parser.add_argument("--scan", action="store_true", help="扫描 tools 目录并重新生成 registry.json")
+    parser = argparse.ArgumentParser(description="auto-skills 新增工具纳管、双轨归类与私有 Git 自动同步引擎 (v3.0)")
+    parser.add_argument("--scan", action="store_true", help="扫描公共 tools/ 与私有 custom_skills/ 重新生成台账")
     parser.add_argument("--add", help="要收拢纳管的外部工具/技能路径")
-    parser.add_argument("--name", help="指定工具名称 (可选，缺省取目录名)")
-    parser.add_argument("--category", default="general", help="工具类别 (verify/implement/design/acquire 等)")
-    parser.add_argument("--list", action="store_true", help="列出当前所有已登记工具")
+    parser.add_argument("--name", help="指定技能名称 (可选，缺省取目录名)")
+    parser.add_argument("--category", default="general", help="技能类别 (verify/implement/design/acquire 等)")
+    parser.add_argument("--target", choices=["custom", "public"], default="custom", help="归类目标：custom=用户私有进化区(默认)，public=公共内置区")
+    parser.add_argument("--no-push", action="store_true", help="私有技能纳管后不自动触发私有 Git 推送")
+    parser.add_argument("--list", action="store_true", help="列出当前所有已登记工具与私有技能")
 
     args = parser.parse_args()
 
     if args.add:
-        success = add_external_tool(args.add, tool_name=args.name, category=args.category)
+        success = add_external_tool(
+            source_path=args.add,
+            tool_name=args.name,
+            category=args.category,
+            target=args.target,
+            auto_push_private=not args.no_push
+        )
         sys.exit(0 if success else 1)
 
     if args.list:
-        if not REGISTRY_FILE.exists():
-            scan_and_refresh_registry()
-        reg = json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
-        print(json.dumps(reg, ensure_ascii=False, indent=2))
+        if not PUBLIC_REGISTRY_FILE.exists() or not CUSTOM_REGISTRY_FILE.exists():
+            scan_and_refresh_all()
+        pub_data = json.loads(PUBLIC_REGISTRY_FILE.read_text(encoding="utf-8")) if PUBLIC_REGISTRY_FILE.exists() else {}
+        priv_data = json.loads(CUSTOM_REGISTRY_FILE.read_text(encoding="utf-8")) if CUSTOM_REGISTRY_FILE.exists() else {}
+        combined = {
+            "public_tools": pub_data.get("tools", {}),
+            "custom_private_skills": priv_data.get("tools", {})
+        }
+        print(json.dumps(combined, ensure_ascii=False, indent=2))
         sys.exit(0)
 
     # 缺省执行 scan
-    scan_and_refresh_registry()
+    scan_and_refresh_all()
 
 
 if __name__ == "__main__":
