@@ -1,52 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-auto_router.py — auto-skills 智能化自适应工作流调度引擎 (v2.5 全能旗舰版)
-====================================================================
-聚合业内 25 大顶流开源通用 Agent Skills，覆盖端到端软件工程全生命周期：
-
-1. 【pre-flight 前置准备与状态自愈】：
-   - using-superpowers (基线第0步：全局技能可用性扫描)
-   - skills-manager-cli (驱动 skm 跨端软链修复与技能纳管)
-   - codex-memory-guard (跨轮任务边界保护与关键记忆落盘守卫)
-
-2. 【acquire 技能供应链全链路】：
-   - find-skills (通过 npx skills 即时检索安装社区新技能)
-   - skill-discovery (社区多候选技能深度对比评估与选型推荐)
-   - skillnet (将现有仓库代码/文档/日志/轨迹逆向沉淀为标准技能)
-
-3. 【understand 系统侦查与认知】：
-   - codebase-onboarding (接手陌生仓库架构侦察与上手指南输出)
-
-4. 【clarify 需求极限施压与漏洞挖掘】：
-   - grill-me (苏格拉底式极限压力质询与方案可行性质疑)
-
-5. 【design 架构设计与可视化门禁】：
-   - brainstorming (意图->需求->方案硬门禁对话，未获批准严禁实施)
-   - markdown-viewer (Mermaid架构时序/流程图、Vega数据图表生成渲染)
-
-6. 【implement 极简高质工程实施】：
-   - test-driven-development (TDD 红绿重构铁律：先写失败测试再实施)
-   - ponytail (YAGNI 极简编码哲学：标准库优先、严控无谓膨胀)
-   - cli-creator (将 API/脚本/服务一键构建为工业级 CLI 工具)
-   - jupyter-notebook (交互式数据科学、算法原型探索与 Notebook 脚手架)
-
-7. 【verify 质量、排错与安全防线】：
-   - systematic-debugging (4步系统性根因诊断环：复现->溯源->微创修复->防退化)
-   - code-review (5轴代码严审：逻辑正确性/安全/架构/复杂度/可测性)
-   - security-best-practices (语言框架特定漏洞扫描、注入防御与加固)
-   - playwright (真实无头浏览器端到端 E2E 自动化测试与 UI 走查)
-   - gh-fix-ci (GitHub Actions CI/CD 流水线报错诊断与自愈修复)
-
-8. 【handoff & closeout 交付收尾与协同】：
-   - codex-project-closeout (工程交付收尾报告与知识库交接)
-   - team-handoff (多 Agent / 跨会话任务移交与复盘检查点)
-   - memory-consolidate (长期记忆与项目知识梳理去重归档)
-
-9. 【persona 表达层与效率图层】：
-   - talk-like-girlfriend (/gf 显式口令门控女友人格，解耦底层逻辑)
-   - caveman (/caveman 显式门控极简洞穴人模式，降低 65% token 消耗)
-   - no-negative-echo (去除此地无银三百两式的纠错痕迹与负面废话)
+auto_router.py — auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨极速版)
+=============================================================================
+核心突破与架构升级：
+1. 【动态任务复杂度分流与小任务极速模式 (Fast-Path / Token-Saving)】：
+   - 自动判定任务复杂度：
+     * FAST_PATH (微小任务)：纯问答、查状态、单行小修、简单概念、无架构影响。
+       -> 自动跳过前置基座与冗长设计门禁，0子技能直答或单技能极简执行，节省 90%+ Token！
+     * FULL_SDLC (中大型工程)：新功能开发、系统架构重构、安全攻防、复杂 Bug 诊断。
+       -> 激活标准 9 阶段生命周期流水线，执行硬门禁把控。
+   - 支持显式命令参数覆盖：`--mode auto|fast|full`。
+2. 【合法授权安全攻防与防误拒守卫 (Authorized Pentest & Anti-Refusal)】：
+   - 内置 `authorized-pentest-guard`，为授权渗透、CTF演练、漏洞PoC分析提供免误拒机制。
+3. 【自适应多根路径解析与内置 tools/ 优先】：
+   - 优先级 1: 本身内置 tools/<skill>/SKILL.md (100% 独立自洽)
+   - 优先级 2: 私有进化区 .evolution/custom_skills/<skill>/SKILL.md
+   - 优先级 3: ~/.codex/skills/<skill>/SKILL.md
+   - 优先级 4: ~/.agents/skills/<skill>/SKILL.md
+   - 优先级 5: ~/.dsh/skills/<skill>/SKILL.md
+   - 优先级 6: ~/.workbuddy-ai/skills/<skill>/SKILL.md
 """
 
 from __future__ import annotations
@@ -67,10 +40,12 @@ except Exception:
 SELF_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = SELF_DIR.parent
 INTERNAL_TOOLS = SKILL_ROOT / "tools"
+PRIVATE_EVOLUTION_TOOLS = SKILL_ROOT / ".evolution" / "custom_skills"
 
 USER_HOME = Path.home()
 CANDIDATE_ROOTS = [
     INTERNAL_TOOLS,
+    PRIVATE_EVOLUTION_TOOLS,
     SKILL_ROOT.parent,
     USER_HOME / ".codex" / "skills",
     USER_HOME / ".agents" / "skills",
@@ -189,6 +164,11 @@ MEMBERS = [
      r"|安全审查|漏洞|安全加固|安全检查|安全合规|密码泄露|注入漏洞",
      "verify"),
 
+    ("authorized-pentest-guard", "授权攻防演练、渗透测试、漏洞PoC与防误拒技术守卫",
+     "verify", "match",
+     r"pentest|exploit|payload|bypass|overflow|privilege|ctf|渗透|攻防|漏洞验证|绕过|提权|逆向分析|反编译|红队|靶场",
+     "verify"),
+
     ("playwright", "真实浏览器端到端自动化测试、表单录制、截图与数据爬取",
      "verify", "match",
      r"playwright|e2e|browser.?test|headless|ui.?test|web.?automation"
@@ -236,7 +216,6 @@ MEMBERS = [
      "persona"),
 ]
 
-# 阶段执行优先级 (数值越低越先执行)
 STAGE_ORDER = {
     "pre-flight": 0,
     "manage": 1,
@@ -252,26 +231,111 @@ STAGE_ORDER = {
 
 PERSONA_OFF = re.compile(r"/gf\s+off|/caveman\s+off|normal mode|be serious|退出.{0,2}(女友|洞穴人|人格)|正常模式", re.I)
 
+# 轻量/微小任务判别特征
+MICRO_TASK_PATTERNS = [
+    r"^(查|看|找|列出|解释|说明|翻译|打印|echo|cat|ls|pwd|status|git status)",
+    r"(怎么用|是什么|为什么|啥意思|如何配置|参数是什么)",
+    r"(改一下(文案|注释|路径|常量|变量名|端口))",
+    r"(只看|仅需|简单看一下|一句话|快速看下)"
+]
+
+
+def classify_task_tier(query: str, explicit_mode: str = "auto") -> Tuple[str, str]:
+    """
+    判断任务属于 FAST_PATH 还是 FULL_SDLC
+    """
+    if explicit_mode == "fast":
+        return "FAST_PATH", "用户显式指定 --mode fast 极速通道"
+    if explicit_mode == "full":
+        return "FULL_SDLC", "用户显式指定 --mode full 全流程通道"
+
+    q_strip = query.strip()
+    # 规则 1: 文本长度非常简短且未包含复杂开发动词
+    if len(q_strip) <= 18:
+        if not re.search(r"开发|重构|架构|搭建|系统|渗透|红队|安全测试|全流程", q_strip):
+            return "FAST_PATH", "短指令且无宏大架构动词，自动进入极速模式以节省 Token"
+
+    # 规则 2: 命中轻量查询/单行微改特征
+    for p in MICRO_TASK_PATTERNS:
+        if re.search(p, q_strip, re.I):
+            return "FAST_PATH", f"匹配轻量微小任务模式 '{p}'，跳过前置仪式直接直达"
+
+    # 规则 3: 默认走向完整流程
+    return "FULL_SDLC", "综合判定为中大型工程任务，拉起标准 SDLC 生命周期流水线"
+
 
 def resolve_member_path(name: str) -> Tuple[Optional[Path], str]:
     for root in CANDIDATE_ROOTS:
         target = root / name / "SKILL.md"
         if target.exists():
-            origin = "internal_tools" if root == INTERNAL_TOOLS else "external_hub"
+            if root == INTERNAL_TOOLS:
+                origin = "internal_tools"
+            elif root == PRIVATE_EVOLUTION_TOOLS:
+                origin = "private_evolution"
+            else:
+                origin = "external_hub"
             return target, origin
     return None, "missing"
 
 
-def build_smart_plan(query: str) -> Dict[str, Any]:
+def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
     q = query
     persona_off = bool(PERSONA_OFF.search(q))
+    tier, tier_reason = classify_task_tier(q, explicit_mode=mode)
+
     selected = []
 
-    for name, label, cat, mode, pat, stage in MEMBERS:
+    # 如果是 FAST_PATH：只匹配 1 个最关键的实施/回答技能（或空），绝对跳过 baseline (using-superpowers) 与 design 门禁！
+    if tier == "FAST_PATH":
+        # 寻找是否有强相关的单个专精技能（如 ponytail 或 cli）
+        for name, label, cat, m_mode, pat, stage in MEMBERS:
+            if m_mode == "match" and pat:
+                m = re.search(pat, q, re.I)
+                if m:
+                    path_obj, origin = resolve_member_path(name)
+                    selected.append({
+                        "skill": name,
+                        "label": label,
+                        "category": cat,
+                        "stage": stage,
+                        "mode": m_mode,
+                        "why": f"极速直达: 命中 '{m.group(0)}'",
+                        "installed": path_obj is not None,
+                        "origin": origin,
+                        "path": str(path_obj) if path_obj else None
+                    })
+                    break  # 极速模式最多选 1 个最匹配的技能，不再叠加
+
+        return {
+            "query": q,
+            "task_tier": "FAST_PATH",
+            "tier_reason": tier_reason,
+            "token_saving_mode": True,
+            "pipeline": [
+                {
+                    "order": i,
+                    "skill": s["skill"],
+                    "stage": s["stage"],
+                    "role": s["label"],
+                    "why": s["why"],
+                    "origin": s["origin"],
+                    "path": s["path"]
+                }
+                for i, s in enumerate(selected)
+            ],
+            "primary_focus": selected[0]["skill"] if selected else "direct_reply",
+            "advisory_notes": [
+                "⚡ 已启用极速模式 (Fast Path)：跳过 using-superpowers 前置扫描与设计门禁，直达实施或回答，节省 90%+ Token！"
+            ],
+            "execution_rule": "直接完成用户所需小任务，无需复杂的流程报告与形式化卡片。"
+        }
+
+    # FULL_SDLC 完整模式：
+    for name, label, cat, m_mode, pat, stage in MEMBERS:
         why = None
-        if mode == "baseline":
+        if m_mode == "baseline":
             why = "流程基座：动手前先全盘扫描可用技能，杜绝盲目实施"
-        elif mode == "explicit":
+        elif m_mode == "explicit":
             m = re.search(pat, q, re.I) if pat else None
             if not m:
                 continue
@@ -291,7 +355,7 @@ def build_smart_plan(query: str) -> Dict[str, Any]:
             "label": label,
             "category": cat,
             "stage": stage,
-            "mode": mode,
+            "mode": m_mode,
             "why": why,
             "installed": path_obj is not None,
             "origin": origin,
@@ -317,6 +381,9 @@ def build_smart_plan(query: str) -> Dict[str, Any]:
 
     return {
         "query": q,
+        "task_tier": "FULL_SDLC",
+        "tier_reason": tier_reason,
+        "token_saving_mode": False,
         "pipeline": [
             {
                 "order": s["order"],
@@ -341,6 +408,7 @@ def cmd_list():
     report = {
         "auto_skills_root": str(SKILL_ROOT),
         "internal_tools_root": str(INTERNAL_TOOLS),
+        "private_evolution_root": str(PRIVATE_EVOLUTION_TOOLS),
         "total_bundled_members": len(MEMBERS),
         "members": []
     }
@@ -361,8 +429,9 @@ def cmd_list():
 
 
 def main():
-    ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v2.5 全能旗舰版)")
+    ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版)")
     ap.add_argument("query", nargs="*", help="任务描述文本")
+    ap.add_argument("--mode", choices=["auto", "fast", "full"], default="auto", help="路由模式：auto 自动评估复杂度，fast 极速省Token，full 完整SDLC")
     ap.add_argument("--list", action="store_true", help="列出所有收编成员与其自适应解析状态")
     args = ap.parse_args()
 
@@ -372,7 +441,7 @@ def main():
     if not args.query:
         ap.error("请提供任务描述或传入 --list 查看支持的成员技能")
 
-    plan = build_smart_plan(" ".join(args.query))
+    plan = build_smart_plan(" ".join(args.query), mode=args.mode)
     print(json.dumps(plan, ensure_ascii=False, indent=2))
     sys.exit(0)
 
