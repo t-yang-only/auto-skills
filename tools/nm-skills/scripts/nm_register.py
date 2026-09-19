@@ -357,6 +357,13 @@ def claim_task_atomic(
         # 刷新 任务认领表.md
         refresh_board_markdown(agent_dir, locks_dir)
 
+        # 5. 全链路自动持久化入库 (MySQL 8.4)
+        try:
+            import db_sync
+            db_sync.record_task_claim_db(claim_info, project_root=str(root))
+        except Exception:
+            pass
+
         msg = f"🎉 【认领成功】任务 [{tid}] 已成功由 【{agent_id}】 独占锁定，租约有效期 {ttl_minutes} 分钟。"
         print(msg)
         return {
@@ -498,6 +505,27 @@ def complete_task_atomic(
         # 4. 刷新看板
         refresh_board_markdown(agent_dir, locks_dir)
 
+        # 5. 全链路自动持久化入库 (MySQL 8.4)
+        try:
+            import db_sync
+            done_info = {
+                "task_id": tid,
+                "holder_id": holder_id,
+                "client": client,
+                "task_name": task_name or tid,
+                "changes": changes,
+                "api": api,
+                "files": files,
+                "skills": skills,
+                "mcps": mcps,
+                "tools": tools,
+                "done_time": done_t,
+                "journal": block
+            }
+            db_sync.record_task_done_db(done_info, project_root=str(root))
+        except Exception:
+            pass
+
         print(f"[OK] 任务 [{tid}] 已圆满完成！工作台账已更新，排他锁已安全释放。")
         return True
 
@@ -599,6 +627,53 @@ def check_file_conflicts_atomic(root: Path, files: str) -> Dict[str, Any]:
         "has_conflict": len(conflicts) > 0,
         "conflicts": conflicts
     }
+
+
+def cmd_whoami(root: Path):
+    agent_dir, locks_dir = get_agent_paths(root)
+    claims = get_task_claims(locks_dir)
+    now_ts = time.time()
+
+    active_locks = []
+    for tid, c in claims.items():
+        if now_ts < c.get("expires_at_ts", 0):
+            active_locks.append(c)
+
+    print("\n" + "=" * 70)
+    print("🐂 NM-Skills 多 Agent 协同身份与活跃锁感知 (v2.5 Flagship)")
+    print("=" * 70)
+    print(f"- 当前工程目录 : {root}")
+    print(f"- 协同台账目录 : {agent_dir}")
+    print(f"- 活跃独占任务 : {len(active_locks)} 个正在进行")
+    if active_locks:
+        print("\n[当前进行中独占任务清单]:")
+        for lk in active_locks:
+            rem = int((lk.get("expires_at_ts", now_ts) - now_ts) / 60)
+            print(f"  • 任务ID: [{lk.get('task_id')}] (持有者: {lk.get('holder_id')})")
+            print(f"    描述: {lk.get('task_name')}")
+            print(f"    文件: {lk.get('files', [])}")
+            print(f"    租约剩余: 约 {rem} 分钟 (截止: {lk.get('expires_at')})")
+    else:
+        print("- 锁状态       : ⚪ 暂无正在独占执行的任务，所有文件均可安全认领！")
+    print("=" * 70 + "\n")
+
+
+def cmd_log(root: Path, limit: int = 15):
+    agent_dir, _ = get_agent_paths(root)
+    log_file = agent_dir / "工作日志.md"
+    reg_file = agent_dir / "工作登记表.md"
+
+    print("\n" + "=" * 70)
+    print("📜 NM-Skills 最近工程工作登记与日志")
+    print("=" * 70)
+    if reg_file.exists():
+        content = reg_file.read_text(encoding="utf-8", errors="ignore")
+        lines = [l for l in content.splitlines() if l.strip()]
+        tail_lines = lines[-limit:] if len(lines) > limit else lines
+        print("\n".join(tail_lines))
+    else:
+        print("暂无登记记录。")
+    print("=" * 70 + "\n")
 
 
 def refresh_board_markdown(agent_dir: Path, locks_dir: Path):
@@ -708,6 +783,13 @@ def main():
     p_check = subparsers.add_parser("check-file", parents=[root_parser], help="预先检测即将修改的文件是否已被他人锁定")
     p_check.add_argument("--files", required=True, help="待检测的文件列表 (逗号分隔)")
 
+    # 8. whoami 查看当前活跃锁
+    subparsers.add_parser("whoami", parents=[root_parser], help="查看当前工程目录的排他锁状态与活跃任务")
+
+    # 9. log 查看工作登记日志
+    p_log = subparsers.add_parser("log", parents=[root_parser], help="查看最近的工作登记与流水日志")
+    p_log.add_argument("--limit", type=int, default=15, help="显示行数 (默认 15)")
+
     args = parser.parse_args()
     root = Path(args.root).resolve() if args.root else Path.cwd()
 
@@ -770,6 +852,14 @@ def main():
         else:
             print("✅ 检查通过：所选文件当前无任何 Agent 占用冲突，可安全编辑！")
             sys.exit(0)
+
+    elif args.action == "whoami":
+        cmd_whoami(root=root)
+        sys.exit(0)
+
+    elif args.action == "log":
+        cmd_log(root=root, limit=args.limit)
+        sys.exit(0)
 
     else:
         # 兼容旧版参数: 如果直接传 --client --task 等
