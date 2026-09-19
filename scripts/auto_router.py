@@ -350,7 +350,7 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
                     })
                     break  # 极速模式最多选 1 个最匹配的技能，不再叠加
 
-        return {
+        plan_fast = {
             "query": q,
             "task_tier": "FAST_PATH",
             "tier_reason": tier_reason,
@@ -373,6 +373,12 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
             ],
             "execution_rule": "直接完成用户所需小任务，无需复杂的流程报告与形式化卡片。"
         }
+        try:
+            import db_sync
+            db_sync.record_router_audit_db(q, plan_fast)
+        except Exception:
+            pass
+        return plan_fast
 
     # FULL_SDLC 完整模式：
     for name, label, cat, m_mode, pat, stage in all_members:
@@ -477,6 +483,13 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
         "advisory_notes": notes,
         "execution_rule": "严格按照 pipeline 顺序依序执行各成员技能规范，各成员 SKILL.md 为单一事实源。"
     }
+    # 路由调用全链路自动落库
+    try:
+        import db_sync
+        db_sync.record_router_audit_db(q, plan_result)
+    except Exception:
+        pass
+
     return plan_result
 
 
