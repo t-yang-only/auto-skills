@@ -299,6 +299,84 @@ def record_task_done_db(done_info: Dict[str, Any], project_root: str = "") -> bo
         return False
 
 
+def record_tool_trace_db(
+    skill_name: str,
+    tool_name: str,
+    action: str = "execute",
+    task_id: Optional[str] = None,
+    user_query: str = "",
+    stage: str = "execution",
+    input_params: Any = None,
+    output_summary: str = "",
+    status: str = "SUCCESS",
+    error_message: str = "",
+    duration_ms: int = 0,
+    lessons_learned: str = "",
+    project_root: str = "",
+    client: str = "CODE"
+) -> bool:
+    """
+    全自动落库：将单次工具链调用和执行过程沉淀至 `tool_execution_traces` 表
+    """
+    if not config_manager.get_value("database.enabled", True):
+        return False
+
+    # 首次或按配置执行 30 天超期数据滚动清理
+    if config_manager.get_value("database.auto_cleanup_expired_traces", True):
+        try:
+            cleanup_expired_traces(days=config_manager.get_value("database.retention_days", 30))
+        except Exception:
+            pass
+
+    import uuid
+    trace_id = f"TR-{int(time.time())}-{uuid.uuid4().hex[:6].upper()}"
+
+    try:
+        conn = get_db_connection()
+        sql = """
+        INSERT INTO `tool_execution_traces`
+            (`trace_id`, `task_id`, `agent_name`, `client`, `user_query`, `stage`,
+             `skill_name`, `tool_name`, `action`, `input_params`, `output_summary`,
+             `status`, `error_message`, `duration_ms`, `lessons_learned`, `project_root`)
+        VALUES
+            (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        """
+        params_json = json.dumps(input_params, ensure_ascii=False) if input_params is not None else None
+        with conn.cursor() as cur:
+            cur.execute(sql, (
+                trace_id, task_id, "auto-skills", client, user_query[:1000] if user_query else "",
+                stage, skill_name, tool_name, action, params_json,
+                output_summary[:2000] if output_summary else "",
+                status, error_message[:1000] if error_message else "",
+                duration_ms, lessons_learned[:1000] if lessons_learned else "",
+                str(project_root)
+            ))
+        conn.close()
+        return True
+    except Exception as e:
+        # 静默不影响工具链主执行
+        return False
+
+
+def cleanup_expired_traces(days: int = 30) -> int:
+    """
+    30 天滚动清理过期工具链调用轨迹，防止数据库膨胀
+    """
+    if not config_manager.get_value("database.enabled", True):
+        return 0
+    try:
+        conn = get_db_connection()
+        sql = "DELETE FROM `tool_execution_traces` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL %s DAY);"
+        with conn.cursor() as cur:
+            affected = cur.execute(sql, (days,))
+        conn.close()
+        if affected > 0:
+            print(f"[*] 【30天滚动清理】已成功清理 {affected} 条超过 {days} 天的历史工具调用轨迹。")
+        return affected
+    except Exception as e:
+        return 0
+
+
 def record_router_audit_db(query: str, plan: Dict[str, Any], caller: str = "CODE") -> bool:
     """自动将路由器的每次调用、阶段流水与决策存入数据库"""
     if not config_manager.get_value("database.enabled", True):
@@ -461,7 +539,7 @@ def print_db_status():
         cur.execute("SELECT VERSION(), DATABASE(), CURRENT_USER()")
         v, db, u = cur.fetchone()
 
-        tables = ["nm_tasks", "nm_work_logs", "skill_registry", "router_audit_logs", "academic_references"]
+        tables = ["nm_tasks", "nm_work_logs", "tool_execution_traces", "skill_registry", "router_audit_logs", "academic_references"]
         counts = {}
         for t in tables:
             try:
@@ -481,7 +559,7 @@ def print_db_status():
         print("-" * 70)
         print("📊 核心数据表记录统计：")
         for t, cnt in counts.items():
-            print(f"  • {t:<22}: {cnt} 条记录")
+            print(f"  • {t:<24}: {cnt} 条记录")
         print("=" * 70 + "\n")
     except Exception as e:
         print(f"[ERROR] 数据库连接失败: {e}")
@@ -495,7 +573,14 @@ def main():
     parser.add_argument("--sync-skills", action="store_true", help="将当前技能台账同步至数据库")
     parser.add_argument("--import-refs", help="导入参考文献定义文件至数据库 (如 compile_references_100.py)")
 
+    parser.add_argument("--cleanup-traces", type=int, nargs="?", const=30, default=None, help="执行指定天数(默认30天)滚动清理过期工具调用轨迹")
+
     args = parser.parse_args()
+
+    if args.cleanup_traces is not None:
+        affected = cleanup_expired_traces(days=args.cleanup_traces)
+        print(f"[OK] 滚动清理完成，删除了 {affected} 条过期轨迹。")
+        sys.exit(0)
 
     if args.test:
         print_db_status()
