@@ -357,6 +357,13 @@ def claim_task_atomic(
         # 刷新 任务认领表.md
         refresh_board_markdown(agent_dir, locks_dir)
 
+        # 5. 全链路自动持久化入库 (MySQL 8.4)
+        try:
+            import db_sync
+            db_sync.record_task_claim_db(claim_info, project_root=str(root))
+        except Exception:
+            pass
+
         msg = f"🎉 【认领成功】任务 [{tid}] 已成功由 【{agent_id}】 独占锁定，租约有效期 {ttl_minutes} 分钟。"
         print(msg)
         return {
@@ -497,6 +504,27 @@ def complete_task_atomic(
 
         # 4. 刷新看板
         refresh_board_markdown(agent_dir, locks_dir)
+
+        # 5. 全链路自动持久化入库 (MySQL 8.4)
+        try:
+            import db_sync
+            done_info = {
+                "task_id": tid,
+                "holder_id": holder_id,
+                "client": client,
+                "task_name": task_name or tid,
+                "changes": changes,
+                "api": api,
+                "files": files,
+                "skills": skills,
+                "mcps": mcps,
+                "tools": tools,
+                "done_time": done_t,
+                "journal": block
+            }
+            db_sync.record_task_done_db(done_info, project_root=str(root))
+        except Exception:
+            pass
 
         print(f"[OK] 任务 [{tid}] 已圆满完成！工作台账已更新，排他锁已安全释放。")
         return True
