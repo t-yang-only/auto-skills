@@ -40,6 +40,8 @@ auto-skills/
 │   └── config.example.yaml # 完整配置说明与注释范本
 ├── scripts/
 │   ├── auto_router.py      # v3.0 智能多根自适应寻址、任务分级与协同命令分发器
+│   ├── db_sync.py          # 数据库存储与全链路自动落库引擎 (MySQL 8.4 专有子账户支持)
+│   ├── experience_mining.py# 历史工具链调用与经验挖掘沉淀引擎 (30天滚动清理)
 │   ├── config_manager.py   # 全局配置管理与双轨自适应合并引擎
 │   ├── wizard_setup.py     # 首次调用配置向导与跨 Agent 自动连接集成器
 │   ├── pull_persona_traits.py # 从知识库自适应拉取女友人格定义与温情特性
@@ -152,6 +154,27 @@ python scripts/auto_router.py --mode fast "修复 auth.py 中的语法错误"
 
 # 强制完整模式：拉起全套 9 大生命周期阶段
 python scripts/auto_router.py --mode full "重构用户认证微服务并编写 E2E 测试"
+```
+
+---
+
+## 🐬 数据库存储、工具链自动落库与经验挖掘 (MySQL 8.4 Dedicated Sub-Account)
+
+支持连接远程/内网 MySQL 8.4 数据库，配备权限最小化专用子账户，实现全链路操作无感落库与经验闭环：
+- **权限安全隔离**：配置专用子账户（`auto_agent`），仅被赋予 `SELECT, INSERT, UPDATE, DELETE` 权限，杜绝 DROP/ALTER 等误操作或注入风险，防止权限污染；
+- **全链路自动落库**：任务认领 (`nm_tasks`)、工作完成与日志 (`nm_work_logs`)、工具链调用轨迹 (`tool_execution_traces`)、技能资产台账 (`skill_registry`)、路由器审计 (`router_audit_logs`)、参考文献定义 (`academic_references`) 全自动异步持久化；
+- **30天滚动清理机制**：自动定期清理超过 30 天的调用轨迹，保持云端存储的高性能与轻量化；
+- **历史经验挖掘**：遇到类似技术报错或协作冲突时，从历史数据库中自动检索曾调用过的工具链与避坑经验（`lessons_learned`），杜绝重复踩坑。
+
+```bash
+# 查看数据库连接与五大表行数概况
+python scripts/auto_router.py db --status
+
+# 针对具体任务或报错检索过往成功经验
+python scripts/auto_router.py exp "多 Agent 任务冲突"
+
+# 查看最近 30 天工具调用排行榜与成功率统计
+python scripts/auto_router.py exp --top-tools
 ```
 
 ---

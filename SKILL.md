@@ -40,6 +40,8 @@ auto-skills/
 │   └── config.example.yaml # 完整配置注释范例文本
 ├── scripts/
 │   ├── auto_router.py      # v3.0 智能多根自适应寻址、任务分级、协同命令与引导分发器
+│   ├── db_sync.py          # 数据库存储与全链路自动落库引擎 (MySQL 8.4 专有子账户支持)
+│   ├── experience_mining.py# 历史工具链调用与经验挖掘沉淀引擎 (30天滚动清理)
 │   ├── config_manager.py   # 统一全局配置读写与多层自适应合并引擎
 │   ├── wizard_setup.py     # 首次调用配置向导与跨 Agent 自动连接引擎
 │   ├── pull_persona_traits.py # 从知识库自适应拉取女友人格定义与温情特性
@@ -181,7 +183,28 @@ python scripts/auto_router.py --mode fast "修复 auth.py 中的 SyntaxError"
 
 ---
 
-## 5. 多渠道消息同步与 Obsidian 在线知识库
+## 5. 数据库存储、工具链自动落库与经验挖掘 (MySQL 8.4)
+
+支持 MySQL 8.4 云端/内网数据库与 SQLite 本地双模：
+- **专用权限最小化子账户**：日常工具链落库采用只具备 `SELECT, INSERT, UPDATE, DELETE` 权限的专用子账户（如 `auto_agent`），彻底杜绝 DROP/ALTER 等高危系统权限污染；
+- **全链路自动落库**：任务认领 (`nm_tasks`)、工作完成与日志 (`nm_work_logs`)、工具链调用轨迹 (`tool_execution_traces`)、技能资产台账 (`skill_registry`)、路由器审计 (`router_audit_logs`)、参考文献定义 (`academic_references`) 全部无感自动写入；
+- **30天滚动清理**：工具调用轨迹自动滚动清理超过 30 天的历史记录，保持数据库轻量高响应；
+- **历史经验挖掘**：遇到相似工程报错或多 Agent 协作冲突时，自动通过 `scripts/experience_mining.py` 挖掘过往成功避坑经验。
+
+```bash
+# 查看数据库状态与统计
+python scripts/auto_router.py db --status
+
+# 针对相似问题检索过往工具链执行经验
+python scripts/auto_router.py exp "多 Agent 任务冲突"
+
+# 查看最近 30 天工具调用排行榜与成功率
+python scripts/auto_router.py exp --top-tools
+```
+
+---
+
+## 6. 多渠道消息同步与 Obsidian 在线知识库
 
 - **多渠道消息聚合广播** (`scripts/notify_push.py`)：支持配置 Server酱 Turbo (微信)、企业微信、飞书、钉钉 (带签名)、PushPlus、Telegram、Bark、自定义 Webhook，任务完成或 Git 提交时并行广播；
 - **Obsidian 本地/在线知识库双模桥梁** (`scripts/obsidian_bridge.py`)：支持配置在线端点与访问密钥（均可留空），首次运行自动探测本地/在线环境并决定最优同步方式；

@@ -1,105 +1,60 @@
 # ==============================================================================
-# auto-skills 统一全局配置文件 (v3.0 旗舰版)
-# ==============================================================================
-# 说明：
-# 首次下载或初始化时，所有细节字段均默认为空或未配置状态。
-# 任意 AI Agent 首次调用时，必须优先辅助用户完成基础配置。
+# auto-skills 统一全局配置文件 (v3.0 旗舰版范本)
 # ==============================================================================
 
 version: "3.0.0"
-
-# 【系统引导状态标记】
-# false 表示尚未完成首次引导配置；完成引导后自动置为 true
 is_configured: false
 
-# ------------------------------------------------------------------------------
-# 1. 公开开源主库自动更新 (Auto Update Settings)
-# ------------------------------------------------------------------------------
+database:
+  enabled: null
+  type: "mysql"
+  host: ""
+  port: 3306
+  dbname: "auto_skills"
+  user: ""
+  password: ""
+  retention_days: 30
+  auto_cleanup_expired_traces: true
+
 auto_update:
-  # 是否自动检查并下载公开 auto-skills 仓库的更新 (true / false，默认留空待配置)
   auto_download_public_update: null
-  # 检查更新的时间间隔（单位：小时，留空默认 24）
   check_interval_hours: null
-  # 公开仓库 Git 地址
   remote_git_url: "https://github.com/t-yang-only/auto-skills.git"
 
-# ------------------------------------------------------------------------------
-# 2. 多渠道消息推送配置 (Multi-Channel Notification Settings)
-# ------------------------------------------------------------------------------
 notifications:
-  # 是否全局启用消息推送 (true / false，默认留空)
   enabled: null
-  # Server酱 Turbo SendKey (微信推送，留空表示不启用)
   serverchan_sendkey: ""
-  # 企业微信群机器人 Webhook 地址 (留空表示不启用)
   wecom_webhook: ""
-  # 飞书群机器人 Webhook 地址 (留空表示不启用)
   feishu_webhook: ""
-  # 钉钉机器人 Webhook 地址 (留空表示不启用)
   dingtalk_webhook: ""
-  # 钉钉机器人加签安全密钥 (留空表示不加签)
   dingtalk_secret: ""
-  # PushPlus 微信推送 Token (留空表示不启用)
   pushplus_token: ""
-  # Telegram Bot Token
   telegram_bot_token: ""
-  # Telegram 接收方 Chat ID
   telegram_chat_id: ""
-  # iOS Bark 推送 URL
   bark_url: ""
 
-# ------------------------------------------------------------------------------
-# 3. nm-skills 牛马多 Agent 协同与排他防撞引擎设置 (Flagship Coordination)
-# ------------------------------------------------------------------------------
 nm_skills:
-  # 是否永远默认在项目根目录下建立执行登记与任务认领台账 (agent_word/)
-  # (true / false，默认留空待用户确认)
   always_enable_project_ledger: null
-  # 默认当前 Agent 客户端标识 (如 CODE / CUR / DB / DS / CLAUDE / DSH，留空自动探测)
   default_client_id: ""
-  # 任务原子认领排他锁的默认租约有效时长 (单位：分钟，留空默认 45)
   default_lease_minutes: null
-  # 是否在修改任何代码前自动原子认领任务并加排他锁 (true / false，留空默认 true)
   auto_claim_before_edit: null
-  # 是否在动笔前自动检查文件级并发占用冲突 (true / false，留空默认 true)
   auto_check_file_conflicts: null
-  # 启动时是否自动扫描并清理超期僵尸锁 (true / false，留空默认 true)
   auto_clean_stale_locks: null
-  # 项目内协作台账目录名称 (留空默认 "agent_word")
   ledger_dir_name: "agent_word"
 
-# ------------------------------------------------------------------------------
-# 4. 人格与表达层配置 (包含女朋友人格模式与知识库拉取)
-# ------------------------------------------------------------------------------
 persona:
   talk_like_girlfriend:
-    # 是否在配置目录中选择默认启用女友人格层 (true / false，默认留空待配置)
     default_enabled: null
-    # 如果启用，是否从本地或在线知识库中拉取简单的女友人格定义与温情特性 (true / false)
     kb_sync_traits: null
-    # 知识库来源路径或在线端点 (如 D:\ObsidianVault 或 https://llm.example.com，留空自动侦测)
     kb_source_url_or_path: ""
-    # 知识库访问密钥 / Bearer Token (可留空)
     kb_api_token: ""
-    # 提取后的人格特性本地缓存文件
     traits_cache_file: ".evolution/profile/persona_girlfriend.json"
 
-# ------------------------------------------------------------------------------
-# 5. 用户专属个人私有 Git 进化仓库配置 (双轨物理隔离)
-# ------------------------------------------------------------------------------
 evolution_vault:
-  # 个人私有 Git 仓库 URL (如 https://github.com/t-yang-only/skills-Management.git)
   private_git_remote: ""
-  # 当动态自安装新技能或沉淀知识时，是否自动 commit 并 push 到私有 Git 库
   auto_sync_on_install: null
-  # 自定义私有技能归纳子目录
   custom_skills_dir: ".evolution/custom_skills"
 
-# ------------------------------------------------------------------------------
-# 6. 本机扫描 Agent 互联集成配置 (Agent Connection & Symlinks)
-# ------------------------------------------------------------------------------
 agent_connections:
-  # 是否在首次配置完成后自动扫描本机所有 Agent 技能目录
   auto_scan_on_startup: null
-  # 扫描到的已知 Agent 目录映射与已建立连接的 Agent 列表
   connected_agents: []

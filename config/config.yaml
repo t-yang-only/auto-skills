@@ -13,7 +13,29 @@ version: "3.0.0"
 is_configured: false
 
 # ------------------------------------------------------------------------------
-# 1. 公开开源主库自动更新 (Auto Update Settings)
+# 1. 数据库存储与调用工具链自动落库 (MySQL 8.4 Dedicated Sub-Account)
+# ------------------------------------------------------------------------------
+database:
+  # 是否启用数据库存储与全链路自动落库 (true / false，默认留空待配置)
+  enabled: null
+  # 数据库类型 (mysql / sqlite)
+  type: "mysql"
+  # 主机与端口
+  host: ""
+  port: 3306
+  # 数据库名称
+  dbname: "auto_skills"
+  # 专用于日常 Agent 工具链上传与落库的权限最小化子账户 (防止主库/系统表污染)
+  user: ""
+  # 专用子账户密码
+  password: ""
+  # 工具链调用追踪记录自动保留天数 (默认 30 天滚动清理过期轨迹)
+  retention_days: 30
+  # 启动时是否自动执行 30 天超期数据滚动清理
+  auto_cleanup_expired_traces: true
+
+# ------------------------------------------------------------------------------
+# 2. 公开开源主库自动更新 (Auto Update Settings)
 # ------------------------------------------------------------------------------
 auto_update:
   # 是否自动检查并下载公开 auto-skills 仓库的更新 (true / false，默认留空待配置)
@@ -24,7 +46,7 @@ auto_update:
   remote_git_url: "https://github.com/t-yang-only/auto-skills.git"
 
 # ------------------------------------------------------------------------------
-# 2. 多渠道消息推送配置 (Multi-Channel Notification Settings)
+# 3. 多渠道消息推送配置 (Multi-Channel Notification Settings)
 # ------------------------------------------------------------------------------
 notifications:
   # 是否全局启用消息推送 (true / false，默认留空)
@@ -49,7 +71,7 @@ notifications:
   bark_url: ""
 
 # ------------------------------------------------------------------------------
-# 3. nm-skills 牛马多 Agent 协同与排他防撞引擎设置 (Flagship Coordination)
+# 4. nm-skills 牛马多 Agent 协同与排他防撞引擎设置 (Flagship Coordination)
 # ------------------------------------------------------------------------------
 nm_skills:
   # 是否永远默认在项目根目录下建立执行登记与任务认领台账 (agent_word/)
@@ -69,7 +91,7 @@ nm_skills:
   ledger_dir_name: "agent_word"
 
 # ------------------------------------------------------------------------------
-# 4. 人格与表达层配置 (包含女朋友人格模式与知识库拉取)
+# 5. 人格与表达层配置 (包含女朋友人格模式与知识库拉取)
 # ------------------------------------------------------------------------------
 persona:
   talk_like_girlfriend:
@@ -85,7 +107,7 @@ persona:
     traits_cache_file: ".evolution/profile/persona_girlfriend.json"
 
 # ------------------------------------------------------------------------------
-# 5. 用户专属个人私有 Git 进化仓库配置 (双轨物理隔离)
+# 6. 用户专属个人私有 Git 进化仓库配置 (双轨物理隔离)
 # ------------------------------------------------------------------------------
 evolution_vault:
   # 个人私有 Git 仓库 URL (如 https://github.com/t-yang-only/skills-Management.git)
@@ -96,7 +118,7 @@ evolution_vault:
   custom_skills_dir: ".evolution/custom_skills"
 
 # ------------------------------------------------------------------------------
-# 6. 本机扫描 Agent 互联集成配置 (Agent Connection & Symlinks)
+# 7. 本机扫描 Agent 互联集成配置 (Agent Connection & Symlinks)
 # ------------------------------------------------------------------------------
 agent_connections:
   # 是否在首次配置完成后自动扫描本机所有 Agent 技能目录

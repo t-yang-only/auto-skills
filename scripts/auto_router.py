@@ -593,8 +593,27 @@ def main():
             print(f"[ERROR] 调用工具纳管模块失败: {e}")
             sys.exit(1)
 
-    ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版，深度融合 nm-skills 协同排他锁与私有 Git 同步)")
-    ap.add_argument("query", nargs="*", help="任务描述文本，或协同子命令 (claim/done/board/renew/whoami/setup/connect-agents/sync-private/install-skill)")
+    # 6. 检测是否为数据库管理与经验挖掘子命令 (db / experience)
+    if len(sys.argv) > 1 and sys.argv[1] in ("db", "database"):
+        try:
+            import db_sync
+            sys.argv.pop(1)
+            return db_sync.main()
+        except Exception as e:
+            print(f"[ERROR] 调用数据库模块失败: {e}")
+            sys.exit(1)
+
+    if len(sys.argv) > 1 and sys.argv[1] in ("experience", "exp"):
+        try:
+            import experience_mining
+            sys.argv.pop(1)
+            return experience_mining.main()
+        except Exception as e:
+            print(f"[ERROR] 调用经验挖掘模块失败: {e}")
+            sys.exit(1)
+
+    ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版，深度融合 nm-skills 协同排他锁、MySQL 自动落库与私有 Git 同步)")
+    ap.add_argument("query", nargs="*", help="任务描述文本，或协同/数据库子命令 (claim/done/board/renew/whoami/setup/connect-agents/db/experience/sync-private/install-skill)")
     ap.add_argument("--mode", choices=["auto", "fast", "full"], default="auto", help="路由模式：auto 自动评估复杂度，fast 极速省Token，full 完整SDLC")
     ap.add_argument("--list", action="store_true", help="列出所有收编成员与其自适应解析状态")
     args = ap.parse_args()
