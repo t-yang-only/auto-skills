@@ -114,7 +114,7 @@ sys.path.insert(0, '.')
 import db_sync
 t0 = time.time()
 ok = db_sync.record_tool_trace_db('auto-skills', 'FailoverProbe', action='execute',
-                                  user_query={mark!r} + '-TRACE', project_root=str(SRC))
+                                  user_query={mark!r} + '-TRACE', project_root='test-project')
 print(json.dumps({{'ok': bool(ok), 'call_seconds': round(time.time() - t0, 2)}}))
 """
 
