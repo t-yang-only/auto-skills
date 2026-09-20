@@ -60,7 +60,7 @@ CONFIG_LOCATIONS = [
     SKILL_ROOT / ".sendkey"
 ]
 
-DEFAULT_SERVERCHAN_KEY = "REDACTED"
+DEFAULT_SERVERCHAN_KEY = ""
 
 
 def get_active_config_path() -> Path:

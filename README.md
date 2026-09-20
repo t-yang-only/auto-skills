@@ -162,7 +162,7 @@ python scripts/auto_router.py --mode full "重构用户认证微服务并编写 
 
 支持连接远程/内网 MySQL 8.4 数据库，配备权限最小化专用子账户，实现全链路操作无感落库与经验闭环：
 - **权限安全隔离**：配置专用子账户（`auto_agent`），仅被赋予 `SELECT, INSERT, UPDATE, DELETE` 权限，杜绝 DROP/ALTER 等误操作或注入风险，防止权限污染；
-- **全链路自动落库**：任务认领 (`nm_tasks`)、工作完成与日志 (`nm_work_logs`)、工具链调用轨迹 (`tool_execution_traces`)、技能资产台账 (`skill_registry`)、路由器审计 (`router_audit_logs`)、参考文献定义 (`academic_references`) 全自动异步持久化；
+- **全链路自动落库**：任务认领 (`nm_tasks`)、工作完成与日志 (`nm_work_logs`)、工具链调用轨迹 (`tool_execution_traces`)、技能资产台账 (`skill_registry`)、路由器审计 (`router_audit_logs`)、参考文献定义 (`academic_references`) 全自动异步持久化。工具链轨迹在 `auto_router.py` 每次路由、`nm_register.py` 每次认领/完成时自动写入；其他工具调用用 `auto_router.py trace <工具名> "<做了什么>"` 显式记录。落库失败写 `.evolution/db_sync_errors.log`，不再静默吞掉；
 - **30天滚动清理机制**：自动定期清理超过 30 天的调用轨迹，保持云端存储的高性能与轻量化；
 - **历史经验挖掘**：遇到类似技术报错或协作冲突时，从历史数据库中自动检索曾调用过的工具链与避坑经验（`lessons_learned`），杜绝重复踩坑。
 
@@ -207,7 +207,7 @@ python scripts/auto_router.py exp --top-tools
    - 用户私有进化（`.evolution/` 目录）：独立 Git 仓库，存放个人习惯、私有技能与凭据；
    - **更新零风险**：上游 `git pull origin main` 绝不会覆盖或冲突你的私有进化资产！
 2. **Obsidian 知识库自适应同步**：
-   - 支持本地路径（如 `D:\ObsidianVault`）与在线知识库 URL（如 `https://llm.example.com`）；
+   - 支持本地路径（如 `D:\ObsidianVault`）与在线知识库 URL（如 `https://your-wiki.example.com`）；
    - 支持填写访问密钥 / Bearer Token，**均可留空**；
    - **首次自适应判定**：自动探测本地知识库与 Git 关联，决定 `git_sync` / `local_folder` / `online_api` / `hybrid` 同步方式。
   ```bash
@@ -215,7 +215,7 @@ python scripts/auto_router.py exp --top-tools
   python scripts/obsidian_bridge.py --status
 
   # 填入在线知识库与密钥 (可留空)
-  python scripts/obsidian_bridge.py --set-online "https://llm.example.com" --set-token "secret_token"
+  python scripts/obsidian_bridge.py --set-online "https://your-wiki.example.com" --set-token "secret_token"
   
   # 清空在线配置回退至纯本地
   python scripts/obsidian_bridge.py --clear-online

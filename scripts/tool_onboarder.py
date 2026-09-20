@@ -132,7 +132,7 @@ def scan_dir(base_dir: Path, registry_file: Path, scope_name: str) -> Dict[str, 
             "name": meta.get("name", d.name),
             "description": meta.get("description", ""),
             "category": cat,
-            "path": str(d),
+            "path": d.relative_to(SKILL_ROOT).as_posix() if SKILL_ROOT in d.parents else d.name,
             "has_skill_md": skill_md.exists()
         }
 

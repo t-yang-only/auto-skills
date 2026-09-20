@@ -7,189 +7,189 @@
       "name": "Authorized Pentest & Security Research Guard (授权攻防与防误拒守卫)",
       "description": "无描述",
       "category": "verify",
-      "path": "D:\\skills\\auto-skills\\tools\\authorized-pentest-guard",
+      "path": "tools/authorized-pentest-guard",
       "has_skill_md": true
     },
     "brainstorming": {
       "name": "brainstorming",
       "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.",
       "category": "design",
-      "path": "D:\\skills\\auto-skills\\tools\\brainstorming",
+      "path": "tools/brainstorming",
       "has_skill_md": true
     },
     "caveman": {
       "name": "caveman",
       "description": "Ultra-compressed communication mode. Cuts output tokens 65% (measured) by speaking like caveman while keeping full technical accuracy. Supports intensity levels: lite, full (default), ultra, wenyan-lite, wenyan-full, wenyan-ultra. Use when user says \"caveman mode\", \"talk like caveman\", \"use caveman\", \"less tokens\", \"be brief\", or invokes /caveman. Also auto-triggers when token efficiency is requested.",
       "category": "persona",
-      "path": "D:\\skills\\auto-skills\\tools\\caveman",
+      "path": "tools/caveman",
       "has_skill_md": true
     },
     "cli-creator": {
       "name": "cli-creator",
       "description": "Build a composable CLI for Codex from API docs, an OpenAPI spec, existing curl examples, an SDK, a web app, an admin tool, or a local script. Use when the user wants Codex to create a command-line tool that can run from any repo, expose composable read/write commands, return stable JSON, manage auth, and pair with a companion skill.",
       "category": "implement",
-      "path": "D:\\skills\\auto-skills\\tools\\cli-creator",
+      "path": "tools/cli-creator",
       "has_skill_md": true
     },
     "code-review": {
       "name": "Code Review & Quality Assurance (代码严审与质量守卫)",
       "description": "无描述",
       "category": "verify",
-      "path": "D:\\skills\\auto-skills\\tools\\code-review",
+      "path": "tools/code-review",
       "has_skill_md": true
     },
     "codebase-onboarding": {
       "name": "codebase-onboarding",
       "description": "Analyze an unfamiliar codebase and generate a structured onboarding guide with architecture map, key entry points, conventions, and a starter CLAUDE.md. Use when joining a new project or setting up Claude Code for the first time in a repo.",
       "category": "understand",
-      "path": "D:\\skills\\auto-skills\\tools\\codebase-onboarding",
+      "path": "tools/codebase-onboarding",
       "has_skill_md": true
     },
     "codex-memory-guard": {
       "name": "codex-memory-guard",
       "description": "Guard task boundaries and preserve confirmed critical project state across Codex compaction. Use when a user wants topic-switch guidance, write-through critical memory, compact HANDOFF checkpoints, PreCompact and compact-resume hooks, four-layer Markdown memory initialization, or memory workflow auditing.",
       "category": "handoff",
-      "path": "D:\\skills\\auto-skills\\tools\\codex-memory-guard",
+      "path": "tools/codex-memory-guard",
       "has_skill_md": true
     },
     "codex-project-closeout": {
       "name": "codex-project-closeout",
       "description": "Record a concise, safe Codex Memory Hub handoff whenever an engineering task, deployment, fix, or investigation is complete.",
       "category": "handoff",
-      "path": "D:\\skills\\auto-skills\\tools\\codex-project-closeout",
+      "path": "tools/codex-project-closeout",
       "has_skill_md": true
     },
     "find-skills": {
       "name": "find-skills",
       "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
       "category": "acquire",
-      "path": "D:\\skills\\auto-skills\\tools\\find-skills",
+      "path": "tools/find-skills",
       "has_skill_md": true
     },
     "gh-fix-ci": {
       "name": "gh-fix-ci",
       "description": "Use when a user asks to debug or fix failing GitHub PR checks that run in GitHub Actions; use `gh` to inspect checks and logs, summarize failure context, draft a fix plan, and implement only after explicit approval. Treat external providers (for example Buildkite) as out of scope and report only the details URL.",
       "category": "verify",
-      "path": "D:\\skills\\auto-skills\\tools\\gh-fix-ci",
+      "path": "tools/gh-fix-ci",
       "has_skill_md": true
     },
     "grill-me": {
       "name": "grill-me",
       "description": "Interview the user relentlessly about a plan or design until reaching confidence through Socratic questioning. Use when: stress-testing a plan, probing design assumptions, validating feasibility. Triggers on: grill me, stress-test, interview me, validate plan, probe design.",
       "category": "design",
-      "path": "D:\\skills\\auto-skills\\tools\\grill-me",
+      "path": "tools/grill-me",
       "has_skill_md": true
     },
     "jupyter-notebook": {
       "name": "jupyter-notebook",
       "description": "Use when the user asks to create, scaffold, or edit Jupyter notebooks (`.ipynb`) for experiments, explorations, or tutorials; prefer the bundled templates and run the helper script `new_notebook.py` to generate a clean starting notebook.",
       "category": "implement",
-      "path": "D:\\skills\\auto-skills\\tools\\jupyter-notebook",
+      "path": "tools/jupyter-notebook",
       "has_skill_md": true
     },
     "markdown-viewer": {
       "name": "markdown-viewer",
       "description": "Create rich diagrams, data visualizations, technical architecture views, and editorial content cards directly in Markdown using the Markdown Viewer Agent Skills pack. Use for Mermaid-like diagram requests, PlantUML architecture diagrams, Vega charts, JSON Canvas maps, infographics, UML, cloud/network/security/data/IoT diagrams, and polished Markdown documentation visuals.",
       "category": "design",
-      "path": "D:\\skills\\auto-skills\\tools\\markdown-viewer",
+      "path": "tools/markdown-viewer",
       "has_skill_md": true
     },
     "memory-consolidate": {
       "name": "memory-consolidate",
       "description": "Use when the user asks to consolidate, merge, deduplicate, or reorganize accumulated dsh-memory-evolve memories (global long-term memory, user profile, project key facts), or when a periodic memory review should run a full consolidation pass. Covers supersede-keep-newest, similar-entry merging, literal dedup, conflict resolution, project-local archiving, stale-state cleanup, and cross-track relocation, all with archive-based reversibility. 触发场景：用户要求梳理/合并/去重/整理记忆（长期记忆、用户档案、项目 key），记忆条目重复记录、新旧版本并存、表述相近却分散多条，或记忆审查到期需要一次系统性整合归档。",
       "category": "handoff",
-      "path": "D:\\skills\\auto-skills\\tools\\memory-consolidate",
+      "path": "tools/memory-consolidate",
       "has_skill_md": true
     },
     "nm-skills": {
       "name": "nm-skills",
       "description": "多 Agent 原子任务认领、互斥排他锁与台账协调引擎 (v2.0 升级版)。在项目根目录自动建立并维护 agent_word/。 核心解决：多 Agent 并发同步时抢跑同一任务的竞争冲突 (Race Condition)、同号序号冲突及文件覆盖。 提供原子任务认领 (claim)、租约排他锁 (Lease with TTL)、文件防撞检查、状态看板 (board) 与完成归档 (done)。 当用户要求 NM skills、牛马技能、工作登记、Agent 台账、多 Agent 协作排他锁、防重复任务或跨客户端同步时使用。",
       "category": "handoff",
-      "path": "D:\\skills\\auto-skills\\tools\\nm-skills",
+      "path": "tools/nm-skills",
       "has_skill_md": true
     },
     "no-negative-echo": {
       "name": "no-negative-echo",
       "description": "Prevent 此地无银三百两式 residue: finalize artifacts without echoing rejected session-only alternatives into labels, metadata, commits, PRs, or handoffs. Use after corrections or discarded proposals. Not for ordinary deletion, deprecation, migration, or exclusions materially required for safety, accuracy, compatibility, audit, quotation, or requested comparison.",
       "category": "persona",
-      "path": "D:\\skills\\auto-skills\\tools\\no-negative-echo",
+      "path": "tools/no-negative-echo",
       "has_skill_md": true
     },
     "playwright": {
       "name": "playwright",
       "description": "Use when the task requires automating a real browser from the terminal (navigation, form filling, snapshots, screenshots, data extraction, UI-flow debugging) via `playwright-cli` or the bundled wrapper script.",
       "category": "verify",
-      "path": "D:\\skills\\auto-skills\\tools\\playwright",
+      "path": "tools/playwright",
       "has_skill_md": true
     },
     "ponytail": {
       "name": "ponytail",
       "description": "Forces the laziest solution that actually works, simplest, shortest, most minimal. Channels a senior dev who has seen everything: question whether the task needs to exist at all (YAGNI), reach for the standard library before custom code, native platform features before dependencies, one line before fifty. Supports intensity levels: lite, full (default), ultra. Use on ANY coding task: writing, adding, refactoring, fixing, reviewing, or designing code, and choosing libraries or dependencies. Also use whenever the user says \"ponytail\", \"be lazy\", \"lazy mode\", \"simplest solution\", \"minimal solution\", \"yagni\", \"do less\", or \"shortest path\", or complains about over-engineering, bloat, boilerplate, or unnecessary dependencies. Do NOT use for non-coding requests (general knowledge, prose, translation, summaries, recipes).",
       "category": "implement",
-      "path": "D:\\skills\\auto-skills\\tools\\ponytail",
+      "path": "tools/ponytail",
       "has_skill_md": true
     },
     "security-best-practices": {
       "name": "security-best-practices",
       "description": "Perform language and framework specific security best-practice reviews and suggest improvements. Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-default coding help. Trigger only for supported languages (python, javascript/typescript, go). Do not trigger for general code review, debugging, or non-security tasks.",
       "category": "verify",
-      "path": "D:\\skills\\auto-skills\\tools\\security-best-practices",
+      "path": "tools/security-best-practices",
       "has_skill_md": true
     },
     "skill-discovery": {
       "name": "skill-discovery",
       "description": "搜索并评估社区 Agent Skill。当用户要 find/install skill、问「有没有 skill 能做 X」、或需从 skills.sh / SkillNet 发现能力时使用。",
       "category": "acquire",
-      "path": "D:\\skills\\auto-skills\\tools\\skill-discovery",
+      "path": "tools/skill-discovery",
       "has_skill_md": true
     },
     "skillnet": {
       "name": "skillnet",
       "description": "Search, download, create, evaluate, and analyze reusable agent skills via SkillNet — the open skill supply chain for AI agents. Use when: (1) Before any multi-step task — search SkillNet for existing skills first, (2) User says \"find a skill\", \"learn this repo/doc\", \"turn this into a skill\", or mentions skillnet, (3) User provides a GitHub URL, PDF, DOCX, PPT, execution logs, or trajectory — create a skill from it, (4) After completing a complex task with non-obvious solutions — create a skill to preserve learnings, (5) User wants to evaluate skill quality, organize/analyze a local skill library, or orchestrate a supported scene. NOT for: single trivial operations (rename variable, fix typo), or tasks with no reusable knowledge.",
       "category": "acquire",
-      "path": "D:\\skills\\auto-skills\\tools\\skillnet",
+      "path": "tools/skillnet",
       "has_skill_md": true
     },
     "skills-manager-cli": {
       "name": "skills-manager-cli",
       "description": "Drive the Skills Manager CLI (`skm`) to initialize the hub, adopt unmanaged skills, list/enable/disable skills per AI tool, and doctor/fix symlink sync. Use whenever the user or an agent needs to manage skills from a terminal, SSH session, CI job, or headless machine; when a skill is missing in Claude Code, Codex, Cursor, Gemini, OpenCode, or any other supported tool; when asked to run skm / Skills Manager CLI; or when setting up Skills Manager without the GUI. Do not use for `npx skills` / skills.sh search (different CLI), for writing SKILL.md content (skill-creator), or for marketplace browse/install (not in skm).",
       "category": "implement",
-      "path": "D:\\skills\\auto-skills\\tools\\skills-manager-cli",
+      "path": "tools/skills-manager-cli",
       "has_skill_md": true
     },
     "systematic-debugging": {
       "name": "Systematic Debugging (系统性根因调试)",
       "description": "无描述",
       "category": "verify",
-      "path": "D:\\skills\\auto-skills\\tools\\systematic-debugging",
+      "path": "tools/systematic-debugging",
       "has_skill_md": true
     },
     "talk-like-girlfriend": {
       "name": "talk-like-girlfriend",
       "description": "Activate when the user wants the agent to talk like a girlfriend, be more affectionate and verbose, or says things like girlfriend mode, talk like my girlfriend, be my girlfriend, or /gf. Deactivate with /gf off or phrases like normal mode, stop girlfriend mode, be serious.",
       "category": "persona",
-      "path": "D:\\skills\\auto-skills\\tools\\talk-like-girlfriend",
+      "path": "tools/talk-like-girlfriend",
       "has_skill_md": true
     },
     "team-handoff": {
       "name": "team-handoff",
       "description": "多 Agent 协作交接协议。当任务需要在 Cursor、Codex、Claude Code 等 agent 之间传递、续作、或 review 时使用；当用户说「交接」「handoff」 「给下一个 agent」时使用。",
       "category": "handoff",
-      "path": "D:\\skills\\auto-skills\\tools\\team-handoff",
+      "path": "tools/team-handoff",
       "has_skill_md": true
     },
     "test-driven-development": {
       "name": "Test-Driven Development (TDD 测试驱动开发)",
       "description": "无描述",
       "category": "verify",
-      "path": "D:\\skills\\auto-skills\\tools\\test-driven-development",
+      "path": "tools/test-driven-development",
       "has_skill_md": true
     },
     "using-superpowers": {
       "name": "using-superpowers",
       "description": "Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions",
       "category": "general",
-      "path": "D:\\skills\\auto-skills\\tools\\using-superpowers",
+      "path": "tools/using-superpowers",
       "has_skill_md": true
     }
   }
