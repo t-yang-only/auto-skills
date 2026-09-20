@@ -71,6 +71,29 @@ BOARD_SEP = (
 )
 
 
+def _n_items(v) -> int:
+    """changes/files 传进来是逗号分隔的字符串，len() 数出来的是字符数不是条数
+    —— 实测记成「改动 25 项 / 涉及 25 个文件」，而实际分别是 1 条和 2 个。"""
+    if not v:
+        return 0
+    if isinstance(v, (list, tuple, set)):
+        return len(v)
+    return len([x for x in str(v).split(",") if x.strip()])
+
+
+def _db_note(where: str, exc: BaseException) -> None:
+    """落库失败留痕，替代原来的 `except Exception: pass`。"""
+    try:
+        log_dir = Path(__file__).resolve().parent.parent / ".evolution"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        from datetime import datetime as _dt
+        with open(log_dir / "db_sync_errors.log", "a", encoding="utf-8") as f:
+            f.write(f"{_dt.now().isoformat(timespec='seconds')} [nm_register:{where}] "
+                    f"{type(exc).__name__}: {exc}\n")
+    except Exception:
+        pass
+
+
 def now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -357,12 +380,17 @@ def claim_task_atomic(
         # 刷新 任务认领表.md
         refresh_board_markdown(agent_dir, locks_dir)
 
-        # 5. 全链路自动持久化入库 (MySQL 8.4)
+        # 5. 全链路自动持久化入库 (MySQL 8.4)：认领记录 + 工具链调用轨迹
         try:
             import db_sync
             db_sync.record_task_claim_db(claim_info, project_root=str(root))
-        except Exception:
-            pass
+            db_sync.record_tool_trace_db(
+                "nm-skills", "nm_register", action="claim", stage="coordination",
+                input_params={"task_id": tid, "ttl_minutes": ttl_minutes},
+                output_summary=f"{agent_id} 独占锁定 {tid}（租约 {ttl_minutes} 分钟）",
+                project_root=str(root), client=os.environ.get("NM_CLIENT_ID", "CODE"))
+        except Exception as _e:
+            _db_note("claim_trace", _e)
 
         msg = f"🎉 【认领成功】任务 [{tid}] 已成功由 【{agent_id}】 独占锁定，租约有效期 {ttl_minutes} 分钟。"
         print(msg)
@@ -523,8 +551,13 @@ def complete_task_atomic(
                 "journal": block
             }
             db_sync.record_task_done_db(done_info, project_root=str(root))
-        except Exception:
-            pass
+            db_sync.record_tool_trace_db(
+                "nm-skills", "nm_register", action="done", stage="coordination",
+                input_params={"task_id": tid, "changes": _n_items(changes), "files": _n_items(files)},
+                output_summary=f"任务 {tid} 完成；改动 {_n_items(changes)} 项、涉及 {_n_items(files)} 个文件",
+                project_root=str(root), client=os.environ.get("NM_CLIENT_ID", "CODE"))
+        except Exception as _e:
+            _db_note("done_trace", _e)
 
         print(f"[OK] 任务 [{tid}] 已圆满完成！工作台账已更新，排他锁已安全释放。")
         return True

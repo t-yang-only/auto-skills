@@ -105,7 +105,7 @@ def run_auto_setup(
     auto_update: bool = True,
     girlfriend_mode: bool = False,
     kb_sync_gf: bool = False,
-    private_git: str = "https://github.com/t-yang-only/skills-Management.git",
+    private_git: str = "",
     connect_all_agents: bool = True
 ) -> bool:
     """自动完成基础配置并标记 is_configured: true"""
@@ -131,7 +131,7 @@ def run_auto_setup(
     cfg["persona"]["talk_like_girlfriend"]["kb_sync_traits"] = kb_sync_gf
     if girlfriend_mode and kb_sync_gf:
         print("[*] 正在从知识库拉取女友人格特性...")
-        pull_persona_traits.pull_and_sync_traits("D:/LLM-Wiki")
+        pull_persona_traits.pull_and_sync_traits("D:/ObsidianVault")
     print(f"[*] 女友人格模式: {'默认启用' if girlfriend_mode else '默认关闭 (可通过 /gf 显式触发)'}")
 
     # 4. 私有 Git 仓库
@@ -227,7 +227,7 @@ def main():
             auto_update=True,
             girlfriend_mode=False,
             kb_sync_gf=True,
-            private_git="https://github.com/t-yang-only/skills-Management.git",
+            private_git="",
             connect_all_agents=True
         )
 

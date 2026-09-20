@@ -48,10 +48,99 @@ except ImportError:
     pymysql = None
 
 
+# ==============================================================================
+# 配置解析：连接方式 / 凭据来源 / 分项开关
+# ==============================================================================
+
+#: 分项开关名 -> 落库目标表（配置项 database.streams.<名>）
+STREAM_TABLES = {
+    "task_claim": "nm_tasks",
+    "task_done": "nm_work_logs",
+    "tool_trace": "tool_execution_traces",
+    "router_audit": "router_audit_logs",
+    "skill_registry": "skill_registry",
+    "academic_references": "academic_references",
+}
+
+
+def db_config() -> Dict[str, Any]:
+    """当前 database 配置段（永远返回 dict）"""
+    cfg = config_manager.get_value("database", {}) or {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def is_db_enabled() -> bool:
+    """总开关：database.enabled=false 或 database.type=disabled 时，任何表都不写。"""
+    cfg = db_config()
+    val = cfg.get("enabled", True)
+    if val is None:
+        val = True
+    if not val:
+        return False
+    return str(cfg.get("type", "mysql")).strip().lower() != "disabled"
+
+
+def is_stream_enabled(stream: str) -> bool:
+    """分项开关：database.streams.<name>=false 可单独关掉一类落库。
+
+    未配置的项一律按开启处理（保证旧配置文件行为不变）。
+    """
+    if not is_db_enabled():
+        return False
+    streams = db_config().get("streams") or {}
+    if not isinstance(streams, dict):
+        return True
+    val = streams.get(stream, True)
+    return True if val is None else bool(val)
+
+
+def _resolve_password(cfg: Dict[str, Any]) -> str:
+    """按 password_env -> password_file -> password 的顺序解析密码。
+
+    刻意不内置任何默认凭据：配置缺失时报错停下，而不是悄悄用某个账号连上。
+    password_file 可写相对技能根目录的相对路径（如 config/db.password）。
+    """
+    env_name = str(cfg.get("password_env") or "").strip()
+    if env_name:
+        val = os.environ.get(env_name)
+        if not val:
+            raise RuntimeError(
+                "database.password_env 指向环境变量 %s，但它为空或未设置" % env_name
+            )
+        return val.strip()
+
+    rel = str(cfg.get("password_file") or "").strip()
+    if rel:
+        p = Path(rel)
+        if not p.is_absolute():
+            p = SKILL_ROOT / rel
+        if not p.is_file():
+            raise RuntimeError("database.password_file 指向的 %s 不存在" % p)
+        return p.read_text(encoding="utf-8").strip()
+
+    val = str(cfg.get("password") or "").strip()
+    if val:
+        return val
+
+    raise RuntimeError(
+        "数据库密码未配置。请在 config/config.yaml 的 database 段设置 password_file"
+        "（推荐，该文件必须加进 .gitignore），或 password_env，或 password。"
+    )
+
+
+
 def get_db_connection(timeout: int = 8):
     """
-    根据配置获取数据库连接对象
+    根据配置获取数据库连接对象。
+
+    注意：调用方应先用 is_stream_enabled() 判断该不该落库，再连。这里再兜一层，
+    是为了防止「关掉数据库后仍有代码直接连库」——那会静默落到 SQLite 分支上去。
     """
+    if not is_db_enabled():
+        raise RuntimeError(
+            "数据库已关闭（database.enabled=false 或 database.type=disabled）。"
+            "调用方应先判断 is_stream_enabled()，不要直接连库。"
+        )
     db_cfg = config_manager.get_value("database", {})
     db_type = db_cfg.get("type", "mysql").lower()
 
@@ -59,11 +148,16 @@ def get_db_connection(timeout: int = 8):
         if not pymysql:
             raise RuntimeError("未安装 pymysql 驱动，请先运行: pip install pymysql cryptography")
         
-        host = db_cfg.get("host", "db.example.com")
-        port = int(db_cfg.get("port", 42870))
-        user = db_cfg.get("user", "db_user")
-        password = db_cfg.get("password", "REDACTED&X")
-        dbname = db_cfg.get("dbname", "auto_skills")
+        # 刻意不写默认值：配置缺失就报错，绝不静默连到某个账号上。
+        host = str(db_cfg.get("host") or "").strip()
+        port = int(db_cfg.get("port") or 3306)
+        user = str(db_cfg.get("user") or "").strip()
+        dbname = str(db_cfg.get("dbname") or "auto_skills").strip()
+        password = _resolve_password(db_cfg)
+        if not host or not user:
+            raise RuntimeError(
+                "数据库未配置完整：config/config.yaml 的 database 段需要 host 与 user"
+            )
 
         # 先尝试连指定数据库，不存在则先建
         try:
@@ -94,9 +188,12 @@ def get_db_connection(timeout: int = 8):
                 )
             raise e
     else:
-        # SQLite 备用模式
+        # SQLite 备用模式（database.type: sqlite）
         import sqlite3
-        sqlite_file = SKILL_ROOT / ".evolution" / "auto_skills.db"
+        custom = str(db_cfg.get("sqlite_path") or "").strip()
+        sqlite_file = Path(custom) if custom else (SKILL_ROOT / ".evolution" / "auto_skills.db")
+        if not sqlite_file.is_absolute():
+            sqlite_file = SKILL_ROOT / sqlite_file
         sqlite_file.parent.mkdir(parents=True, exist_ok=True)
         return sqlite3.connect(str(sqlite_file))
 
@@ -215,7 +312,7 @@ def init_database_tables():
 
 def record_task_claim_db(claim_info: Dict[str, Any], project_root: str = "") -> bool:
     """自动将认领锁信息存入/更新到数据库"""
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("task_claim"):
         return False
     try:
         conn = get_db_connection()
@@ -258,7 +355,7 @@ def record_task_claim_db(claim_info: Dict[str, Any], project_root: str = "") -> 
 
 def record_task_done_db(done_info: Dict[str, Any], project_root: str = "") -> bool:
     """自动将任务完成与日志存入数据库"""
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("task_done"):
         return False
     try:
         conn = get_db_connection()
@@ -301,7 +398,7 @@ def record_task_done_db(done_info: Dict[str, Any], project_root: str = "") -> bo
 
 def record_router_audit_db(query: str, plan: Dict[str, Any], caller: str = "CODE") -> bool:
     """自动将路由器的每次调用、阶段流水与决策存入数据库"""
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("router_audit"):
         return False
     try:
         conn = get_db_connection()
@@ -330,7 +427,7 @@ def record_router_audit_db(query: str, plan: Dict[str, Any], caller: str = "CODE
 
 def sync_skills_registry_to_db() -> int:
     """将公共与私有技能台账同步至数据库"""
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("skill_registry"):
         return 0
     try:
         conn = get_db_connection()
@@ -477,7 +574,7 @@ def print_db_status():
         print(f"- 数据库引擎 : MySQL {v}")
         print(f"- 当前数据库 : {db}")
         print(f"- 数据库用户 : {u}")
-        print(f"- 主机与端口 : db.example.com:42870 (香港区 2vCPUs|8GB)")
+        print(f"- 主机与端口 : (见 config.yaml / 环境变量)")
         print("-" * 70)
         print("📊 核心数据表记录统计：")
         for t, cnt in counts.items():

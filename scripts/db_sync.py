@@ -23,6 +23,7 @@ import os
 import sys
 import json
 import argparse
+import contextlib
 import time
 from pathlib import Path
 from datetime import datetime
@@ -48,10 +49,99 @@ except ImportError:
     pymysql = None
 
 
+# ==============================================================================
+# 配置解析：连接方式 / 凭据来源 / 分项开关
+# ==============================================================================
+
+#: 分项开关名 -> 落库目标表（配置项 database.streams.<名>）
+STREAM_TABLES = {
+    "task_claim": "nm_tasks",
+    "task_done": "nm_work_logs",
+    "tool_trace": "tool_execution_traces",
+    "router_audit": "router_audit_logs",
+    "skill_registry": "skill_registry",
+    "academic_references": "academic_references",
+}
+
+
+def db_config() -> Dict[str, Any]:
+    """当前 database 配置段（永远返回 dict）"""
+    cfg = config_manager.get_value("database", {}) or {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def is_db_enabled() -> bool:
+    """总开关：database.enabled=false 或 database.type=disabled 时，任何表都不写。"""
+    cfg = db_config()
+    val = cfg.get("enabled", True)
+    if val is None:
+        val = True
+    if not val:
+        return False
+    return str(cfg.get("type", "mysql")).strip().lower() != "disabled"
+
+
+def is_stream_enabled(stream: str) -> bool:
+    """分项开关：database.streams.<name>=false 可单独关掉一类落库。
+
+    未配置的项一律按开启处理（保证旧配置文件行为不变）。
+    """
+    if not is_db_enabled():
+        return False
+    streams = db_config().get("streams") or {}
+    if not isinstance(streams, dict):
+        return True
+    val = streams.get(stream, True)
+    return True if val is None else bool(val)
+
+
+def _resolve_password(cfg: Dict[str, Any]) -> str:
+    """按 password_env -> password_file -> password 的顺序解析密码。
+
+    刻意不内置任何默认凭据：配置缺失时报错停下，而不是悄悄用某个账号连上。
+    password_file 可写相对技能根目录的相对路径（如 config/db.password）。
+    """
+    env_name = str(cfg.get("password_env") or "").strip()
+    if env_name:
+        val = os.environ.get(env_name)
+        if not val:
+            raise RuntimeError(
+                "database.password_env 指向环境变量 %s，但它为空或未设置" % env_name
+            )
+        return val.strip()
+
+    rel = str(cfg.get("password_file") or "").strip()
+    if rel:
+        p = Path(rel)
+        if not p.is_absolute():
+            p = SKILL_ROOT / rel
+        if not p.is_file():
+            raise RuntimeError("database.password_file 指向的 %s 不存在" % p)
+        return p.read_text(encoding="utf-8").strip()
+
+    val = str(cfg.get("password") or "").strip()
+    if val:
+        return val
+
+    raise RuntimeError(
+        "数据库密码未配置。请在 config/config.yaml 的 database 段设置 password_file"
+        "（推荐，该文件必须加进 .gitignore），或 password_env，或 password。"
+    )
+
+
+
 def get_db_connection(timeout: int = 8):
     """
-    根据配置获取数据库连接对象
+    根据配置获取数据库连接对象。
+
+    注意：调用方应先用 is_stream_enabled() 判断该不该落库，再连。这里再兜一层，
+    是为了防止「关掉数据库后仍有代码直接连库」——那会静默落到 SQLite 分支上去。
     """
+    if not is_db_enabled():
+        raise RuntimeError(
+            "数据库已关闭（database.enabled=false 或 database.type=disabled）。"
+            "调用方应先判断 is_stream_enabled()，不要直接连库。"
+        )
     db_cfg = config_manager.get_value("database", {})
     db_type = db_cfg.get("type", "mysql").lower()
 
@@ -59,11 +149,16 @@ def get_db_connection(timeout: int = 8):
         if not pymysql:
             raise RuntimeError("未安装 pymysql 驱动，请先运行: pip install pymysql cryptography")
         
-        host = db_cfg.get("host", "db.example.com")
-        port = int(db_cfg.get("port", 42870))
-        user = db_cfg.get("user", "db_user")
-        password = db_cfg.get("password", "REDACTED&X")
-        dbname = db_cfg.get("dbname", "auto_skills")
+        # 刻意不写默认值：配置缺失就报错，绝不静默连到某个账号上。
+        host = str(db_cfg.get("host") or "").strip()
+        port = int(db_cfg.get("port") or 3306)
+        user = str(db_cfg.get("user") or "").strip()
+        dbname = str(db_cfg.get("dbname") or "auto_skills").strip()
+        password = _resolve_password(db_cfg)
+        if not host or not user:
+            raise RuntimeError(
+                "数据库未配置完整：config/config.yaml 的 database 段需要 host 与 user"
+            )
 
         # 先尝试连指定数据库，不存在则先建
         try:
@@ -94,9 +189,12 @@ def get_db_connection(timeout: int = 8):
                 )
             raise e
     else:
-        # SQLite 备用模式
+        # SQLite 备用模式（database.type: sqlite）
         import sqlite3
-        sqlite_file = SKILL_ROOT / ".evolution" / "auto_skills.db"
+        custom = str(db_cfg.get("sqlite_path") or "").strip()
+        sqlite_file = Path(custom) if custom else (SKILL_ROOT / ".evolution" / "auto_skills.db")
+        if not sqlite_file.is_absolute():
+            sqlite_file = SKILL_ROOT / sqlite_file
         sqlite_file.parent.mkdir(parents=True, exist_ok=True)
         return sqlite3.connect(str(sqlite_file))
 
@@ -215,7 +313,7 @@ def init_database_tables():
 
 def record_task_claim_db(claim_info: Dict[str, Any], project_root: str = "") -> bool:
     """自动将认领锁信息存入/更新到数据库"""
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("task_claim"):
         return False
     try:
         conn = get_db_connection()
@@ -253,12 +351,14 @@ def record_task_claim_db(claim_info: Dict[str, Any], project_root: str = "") -> 
         return True
     except Exception as e:
         print(f"[!] 自动落库 nm_tasks 提示: {e}")
+        _spool_on_failure("task_claim", "record_task_claim_db",
+                          (claim_info, project_root), {}, e)
         return False
 
 
 def record_task_done_db(done_info: Dict[str, Any], project_root: str = "") -> bool:
     """自动将任务完成与日志存入数据库"""
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("task_done"):
         return False
     try:
         conn = get_db_connection()
@@ -296,6 +396,73 @@ def record_task_done_db(done_info: Dict[str, Any], project_root: str = "") -> bo
         return True
     except Exception as e:
         print(f"[!] 自动落库 nm_work_logs 提示: {e}")
+        _spool_on_failure("task_done", "record_task_done_db",
+                          (done_info, project_root), {}, e)
+        return False
+
+
+def _log_db_error(where: str, exc: BaseException) -> None:
+    """
+    落库失败必须留痕。
+
+    此前所有调用点都写成 `try: ... except Exception: pass`，于是「没报错」被
+    当成「在写」——2026-09 就是因此让 record_tool_trace_db 长期无人调用而无人
+    发现。这里统一写到 .evolution/db_sync_errors.log：stdout 保持干净（agent 在
+    读 stdout），但失败可追溯。
+    """
+    try:
+        log_dir = Path(__file__).resolve().parent.parent / ".evolution"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / "db_sync_errors.log", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now().isoformat(timespec='seconds')} [{where}] "
+                    f"{type(exc).__name__}: {exc}\n")
+    except Exception:
+        pass
+
+
+@contextlib.contextmanager
+def trace_tool(skill_name: str, tool_name: str, action: str = "execute",
+               user_query: str = "", stage: str = "execution",
+               input_params: Any = None, project_root: str = "",
+               client: str = "CODE", summary: str = ""):
+    """
+    把一次工具链调用记进 `tool_execution_traces`（自动测耗时、自动判成败）。
+
+        with db_sync.trace_tool("nm-skills", "nm_register", "claim",
+                                user_query=q, stage="coordination") as t:
+            ...
+            t["summary"] = "任务 T-1 已锁定"
+
+    函数体抛异常也会落库（status=FAILED 且带错误原文），然后原样抛出。
+    """
+    t0 = time.time()
+    box = {"summary": summary, "status": "SUCCESS", "error": ""}
+    try:
+        yield box
+    except Exception as ex:
+        box["status"] = "FAILED"
+        box["error"] = f"{type(ex).__name__}: {ex}"
+        raise
+    finally:
+        try:
+            record_tool_trace_db(
+                skill_name, tool_name, action=action, user_query=user_query,
+                stage=stage, input_params=input_params,
+                output_summary=box["summary"], status=box["status"],
+                error_message=box["error"],
+                duration_ms=int((time.time() - t0) * 1000),
+                project_root=project_root, client=client)
+        except Exception as ex:
+            _log_db_error(f"trace_tool:{tool_name}.{action}", ex)
+
+
+def trace_call(skill_name: str, tool_name: str, action: str = "execute",
+               **kw) -> bool:
+    """一次性记录（无需测耗时的场景）。落库失败只留痕，不打断调用方。"""
+    try:
+        return record_tool_trace_db(skill_name, tool_name, action=action, **kw)
+    except Exception as ex:
+        _log_db_error(f"trace_call:{tool_name}.{action}", ex)
         return False
 
 
@@ -318,7 +485,7 @@ def record_tool_trace_db(
     """
     全自动落库：将单次工具链调用和执行过程沉淀至 `tool_execution_traces` 表
     """
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("tool_trace"):
         return False
 
     # 首次或按配置执行 30 天超期数据滚动清理
@@ -354,7 +521,15 @@ def record_tool_trace_db(
         conn.close()
         return True
     except Exception as e:
-        # 静默不影响工具链主执行
+        # 不打断工具链主执行，但必须留痕（见 _log_db_error）
+        _log_db_error("record_tool_trace_db", e)
+        _spool_on_failure("tool_trace", "record_tool_trace_db", (), {
+            "skill_name": skill_name, "tool_name": tool_name, "action": action,
+            "task_id": task_id, "user_query": user_query, "stage": stage,
+            "input_params": input_params, "output_summary": output_summary,
+            "status": status, "error_message": error_message, "duration_ms": duration_ms,
+            "lessons_learned": lessons_learned, "project_root": project_root, "client": client,
+        }, e)
         return False
 
 
@@ -379,7 +554,7 @@ def cleanup_expired_traces(days: int = 30) -> int:
 
 def record_router_audit_db(query: str, plan: Dict[str, Any], caller: str = "CODE") -> bool:
     """自动将路由器的每次调用、阶段流水与决策存入数据库"""
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("router_audit"):
         return False
     try:
         conn = get_db_connection()
@@ -402,13 +577,15 @@ def record_router_audit_db(query: str, plan: Dict[str, Any], caller: str = "CODE
         conn.close()
         return True
     except Exception as e:
-        # 静默不阻塞主调用
+        # 静默不阻塞主调用，但失败要留底并可补传
+        _spool_on_failure("router_audit", "record_router_audit_db",
+                          (query, plan, caller), {}, e)
         return False
 
 
 def sync_skills_registry_to_db() -> int:
     """将公共与私有技能台账同步至数据库"""
-    if not config_manager.get_value("database.enabled", True):
+    if not is_stream_enabled("skill_registry"):
         return 0
     try:
         conn = get_db_connection()
@@ -455,6 +632,7 @@ def sync_skills_registry_to_db() -> int:
         return count
     except Exception as e:
         print(f"[!] 同步技能台账至数据库失败: {e}")
+        _spool_on_failure("skill_registry", "sync_skills_registry_to_db", (), {}, e)
         return 0
 
 
@@ -531,6 +709,20 @@ def import_academic_references_file(ref_file_path: str) -> int:
     return inserted
 
 
+# ---- academic_references：原实现没有 try/except 包住落库段，
+#      一次数据库故障会直接把异常抛给调用方。这里补上外层包装。----
+_import_refs_raw = import_academic_references_file
+
+
+def import_academic_references_file(ref_file_path: str) -> int:  # noqa: F811
+    try:
+        return _import_refs_raw(ref_file_path)
+    except Exception as e:
+        _spool_on_failure("academic_references", "_import_refs_raw",
+                          (str(ref_file_path),), {}, e)
+        return 0
+
+
 def print_db_status():
     """查看数据库连接与各表行数概览"""
     try:
@@ -555,7 +747,7 @@ def print_db_status():
         print(f"- 数据库引擎 : MySQL {v}")
         print(f"- 当前数据库 : {db}")
         print(f"- 数据库用户 : {u}")
-        print(f"- 主机与端口 : db.example.com:42870 (香港区 2vCPUs|8GB)")
+        print(f"- 主机与端口 : (见 config.yaml / 环境变量)")
         print("-" * 70)
         print("📊 核心数据表记录统计：")
         for t, cnt in counts.items():
@@ -563,6 +755,385 @@ def print_db_status():
         print("=" * 70 + "\n")
     except Exception as e:
         print(f"[ERROR] 数据库连接失败: {e}")
+
+
+# ==============================================================================
+# 容错层：熔断器 + 本地暂存(outbox) + 自动补传
+# ------------------------------------------------------------------------------
+# 落库是【旁路】。数据库不可用时，既不能丢数据，也不能拖慢 agent。三条不变量：
+#   1. 落库失败绝不抛到调用方——主流程永远不受数据库影响；
+#   2. 失败的记录本地留底，库恢复后自动补传（不丢数据）；
+#   3. 库不可用时不得反复等待连接超时——连续失败即熔断，冷却期内快速失败。
+# 状态一律落盘（.evolution/）：auto-skills 每次调用都是新进程，内存态无效。
+# 开关全部在 database.failover 段，可整体关闭。
+# ==============================================================================
+
+import time as _time
+
+_FAILOVER_MARK = "failover-v1"
+_REPLAY_GUARD = {"running": False}
+
+
+class DatabaseUnavailable(RuntimeError):
+    """数据库当前不可用（已关闭 / 连接失败 / 熔断器打开）。"""
+
+
+def _failover_cfg() -> Dict[str, Any]:
+    """database.failover 段配置（永远返回 dict）"""
+    fo = db_config().get("failover", {}) or {}
+    return fo if isinstance(fo, dict) else {}
+
+
+def _fo_get(key: str, default):
+    return _failover_cfg().get(key, default)
+
+
+def _evolution_dir() -> Path:
+    d = SKILL_ROOT / ".evolution"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _health_file() -> Path:
+    return _evolution_dir() / "db_health.json"
+
+
+def _spool_file() -> Path:
+    return _evolution_dir() / "db_spool" / "pending.jsonl"
+
+
+def _dead_file() -> Path:
+    return _evolution_dir() / "db_spool" / "dead.jsonl"
+
+
+def _load_health() -> Dict[str, Any]:
+    try:
+        return json.loads(_health_file().read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+
+
+def _save_health(h: Dict[str, Any]) -> None:
+    p = _health_file()
+    tmp = p.parent / (p.name + ".tmp")
+    try:
+        tmp.write_text(json.dumps(h, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(_health_file())
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------- 通知（可选）
+
+def _notify(title: str, body: str) -> None:
+    """熔断打开时的告警。best-effort：任何失败都不得影响主流程。"""
+    try:
+        if not _fo_get("notify_on_breaker", False):
+            return
+        cfg = config_manager.get_value("notifications", {}) or {}
+        if not isinstance(cfg, dict):
+            return
+        key = (cfg.get("serverchan_sendkey") or "").strip()
+        if not key:
+            return
+        import urllib.parse
+        import urllib.request
+        data = urllib.parse.urlencode({"title": title, "desp": body}).encode("utf-8")
+        req = urllib.request.Request(
+            f"https://sctapi.ftqq.com/{key}.send", data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"})
+        urllib.request.urlopen(req, timeout=8).read()
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------- 健康状态
+
+def health_state() -> Dict[str, Any]:
+    """给 --doctor / --status 用的健康快照"""
+    h = _load_health()
+    now = _time.time()
+    until = float(h.get("breaker_open_until") or 0)
+    h["breaker_open"] = until > now
+    h["breaker_remaining_seconds"] = max(0, int(until - now))
+    h.setdefault("consecutive_failures", 0)
+    h["spool_pending"] = spool_count()
+    h["spool_dead"] = _count_lines(_dead_file())
+    h["failover_enabled"] = bool(_fo_get("enabled", True))
+    return h
+
+
+def _health_record_success() -> None:
+    h = _load_health()
+    h["consecutive_failures"] = 0
+    h["breaker_open_until"] = 0
+    h["last_ok_at"] = datetime.now().isoformat(timespec="seconds")
+    _save_health(h)
+
+
+def _health_record_failure(exc: BaseException) -> None:
+    h = _load_health()
+    n = int(h.get("consecutive_failures") or 0) + 1
+    h["consecutive_failures"] = n
+    h["last_error"] = f"{type(exc).__name__}: {exc}"[:500]
+    h["last_error_at"] = datetime.now().isoformat(timespec="seconds")
+    threshold = int(_fo_get("breaker_threshold", 3))
+    opened_now = False
+    if n >= threshold and float(h.get("breaker_open_until") or 0) <= _time.time():
+        cooldown = int(_fo_get("breaker_cooldown_seconds", 120))
+        h["breaker_open_until"] = _time.time() + cooldown
+        h["breaker_opened_at"] = datetime.now().isoformat(timespec="seconds")
+        opened_now = True
+    _save_health(h)
+    if opened_now:
+        _notify("auto-skills 落库熔断",
+                f"连续 {n} 次无法使用数据库，已熔断 {_fo_get('breaker_cooldown_seconds', 120)} 秒。\\n"
+                f"最后一次错误：{h['last_error']}\\n"
+                f"期间失败的记录已本地暂存，库恢复后会自动补传。\\n"
+                f"待补传：{spool_count()} 条")
+
+
+# ---------------------------------------------------------------- 本地暂存
+
+def _count_lines(p: Path) -> int:
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return sum(1 for line in f if line.strip())
+    except Exception:
+        return 0
+
+
+def spool_count() -> int:
+    return _count_lines(_spool_file())
+
+
+def _append_jsonl(p: Path, obj: Dict[str, Any]) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+
+def spool_add(stream: str, fn_name: str, args, kwargs, error: BaseException) -> bool:
+    """把一次失败落库的调用参数暂存到本地，等库恢复后补传。"""
+    if not _fo_get("enabled", True) or not _fo_get("spool_enabled", True):
+        return False
+    limit = int(_fo_get("spool_max_records", 2000))
+    if spool_count() >= limit:
+        _log_db_error("spool_add", RuntimeError(f"暂存已满（{limit} 条），本次丢弃以保护磁盘"))
+        return False
+    rec = {
+        "at": datetime.now().isoformat(timespec="seconds"),
+        "stream": stream,
+        "fn": fn_name,
+        "args": list(args or []),
+        "kwargs": dict(kwargs or {}),
+        "attempts": 0,
+        "error": f"{type(error).__name__}: {error}"[:300],
+    }
+    try:
+        json.dumps(rec, ensure_ascii=False)   # 不可序列化就别存（避免补传时炸）
+    except Exception as e:
+        _log_db_error("spool_add", RuntimeError(f"参数不可序列化，无法暂存：{e}"))
+        return False
+    try:
+        _append_jsonl(_spool_file(), rec)
+        return True
+    except Exception as e:
+        _log_db_error("spool_add", e)
+        return False
+
+
+def _spool_on_failure(stream: str, fn_name: str, args, kwargs, exc: BaseException) -> None:
+    """落库失败的统一收口：记日志 + 本地暂存，绝不抛给调用方。"""
+    _log_db_error(fn_name, exc)
+    spool_add(stream, fn_name, args, kwargs, exc)
+
+
+def _read_spool() -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    try:
+        with open(_spool_file(), "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        out.append(json.loads(line))
+                    except Exception:
+                        pass
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        _log_db_error("_read_spool", e)
+    return out
+
+
+def _write_spool(items: List[Dict[str, Any]]) -> None:
+    p = _spool_file()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.parent / (p.name + ".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            for it in items:
+                f.write(json.dumps(it, ensure_ascii=False) + "\n")
+        tmp.replace(p)
+    except Exception as e:
+        _log_db_error("_write_spool", e)
+
+
+def spool_purge_expired() -> int:
+    """丢弃超过 spool_max_age_days 的暂存记录，防止无限积压。"""
+    days = float(_fo_get("spool_max_age_days", 7))
+    if days <= 0:
+        return 0
+    items = _read_spool()
+    if not items:
+        return 0
+    cutoff = datetime.now().timestamp() - days * 86400
+    keep, dropped = [], []
+    for it in items:
+        try:
+            ts = datetime.fromisoformat(it.get("at", "")).timestamp()
+        except Exception:
+            ts = _time.time()
+        (keep if ts >= cutoff else dropped).append(it)
+    if dropped:
+        for it in dropped:
+            _append_jsonl(_dead_file(), dict(it, dead_reason="expired"))
+        _write_spool(keep)
+        _log_db_error("spool_purge_expired",
+                      RuntimeError(f"{len(dropped)} 条暂存超过 {days} 天，已移入 dead.jsonl"))
+    return len(dropped)
+
+
+def spool_replay(limit: int = 50) -> tuple:
+    """把暂存记录按原参数重新调用对应落库函数。返回 (成功数, 仍失败数)。"""
+    items = _read_spool()
+    if not items:
+        return (0, 0)
+    max_attempts = int(_fo_get("max_attempts", 5))
+    g = globals()
+    replayed = failed = 0
+    keep: List[Dict[str, Any]] = []
+
+    for it in items[:limit]:
+        fn = g.get(it.get("fn") or "")
+        if fn is None:
+            _append_jsonl(_dead_file(), dict(it, dead_reason="unknown_fn"))
+            failed += 1
+            continue
+        ok = False
+        try:
+            ok = bool(fn(*(it.get("args") or []), **(it.get("kwargs") or {})))
+        except Exception as e:
+            _log_db_error(f"replay:{it.get('fn')}", e)
+        if ok:
+            replayed += 1
+        else:
+            it["attempts"] = int(it.get("attempts") or 0) + 1
+            if it["attempts"] >= max_attempts:
+                _append_jsonl(_dead_file(), dict(it, dead_reason="max_attempts"))
+            else:
+                keep.append(it)
+            failed += 1
+
+    keep.extend(items[limit:])          # 本次没轮到的原样保留
+    _write_spool(keep)
+    return (replayed, failed)
+
+
+def _maybe_replay() -> None:
+    """库刚连上时顺手补传。节流 + 防重入（补传本身会再进 get_db_connection）。"""
+    if not _fo_get("enabled", True) or _REPLAY_GUARD["running"]:
+        return
+    if spool_count() == 0:
+        return
+    h = _load_health()
+    interval = float(_fo_get("replay_interval_seconds", 60))
+    if _time.time() - float(h.get("last_replay_at") or 0) < interval:
+        return
+    _REPLAY_GUARD["running"] = True
+    try:
+        spool_purge_expired()
+        ok, bad = spool_replay(limit=int(_fo_get("replay_batch", 50)))
+        h = _load_health()
+        h["last_replay_at"] = _time.time()
+        h["last_replay_at_human"] = datetime.now().isoformat(timespec="seconds")
+        h["last_replay_result"] = f"补传成功 {ok} 条，仍待补 {spool_count()} 条"
+        _save_health(h)
+    except Exception as e:
+        _log_db_error("_maybe_replay", e)
+    finally:
+        _REPLAY_GUARD["running"] = False
+
+
+# ---------------------------------------------------------------- 连接包装
+
+_get_db_connection_raw = get_db_connection
+
+
+def get_db_connection(timeout: int = 8):  # noqa: F811  故意覆盖上面的实现
+    """带熔断的数据库连接。
+
+    与原始实现的唯一差别：熔断打开时立即抛 DatabaseUnavailable，不再发起 TCP 连接。
+    这是「库挂了不能拖慢 agent」的关键——没有它，每次落库都要干等 8 秒超时。
+    """
+    if not is_db_enabled():
+        raise DatabaseUnavailable("数据库已关闭（database.enabled=false 或 type=disabled）")
+
+    if _fo_get("enabled", True):
+        until = float(_load_health().get("breaker_open_until") or 0)
+        now = _time.time()
+        if until > now:
+            raise DatabaseUnavailable(
+                f"熔断器打开中（剩余 {int(until - now)}s）—— 上次错误："
+                f"{_load_health().get('last_error', '')[:150]}")
+
+    try:
+        conn = _get_db_connection_raw(timeout=timeout)
+    except Exception as e:
+        _health_record_failure(e)
+        raise
+
+    _health_record_success()
+    _maybe_replay()          # 库刚恢复，顺手把暂存回灌
+    return conn
+
+
+def print_db_doctor() -> None:
+    """落库健康自检：开关 / 连通性 / 熔断 / 暂存积压。"""
+    print("=" * 70)
+    print("  auto-skills 落库健康自检")
+    print("=" * 70)
+    cfg = db_config()
+    print(f"  enabled            : {cfg.get('enabled')}")
+    print(f"  type               : {cfg.get('type')}")
+    print(f"  分项开关           : ", end="")
+    print(", ".join(f"{s}={'on' if is_stream_enabled(s) else 'off'}" for s in STREAM_TABLES))
+    print(f"  failover.enabled   : {_fo_get('enabled', True)}")
+    print(f"  breaker_threshold  : {_fo_get('breaker_threshold', 3)} 次"
+          f"  cooldown={_fo_get('breaker_cooldown_seconds', 120)}s")
+
+    h = health_state()
+    print("-" * 70)
+    print(f"  熔断器             : {'【打开】剩余 ' + str(h['breaker_remaining_seconds']) + 's' if h['breaker_open'] else '正常（闭合）'}")
+    print(f"  连续失败次数       : {h.get('consecutive_failures', 0)}")
+    print(f"  上次成功           : {h.get('last_ok_at', '—')}")
+    print(f"  上次失败           : {h.get('last_error_at', '—')}  {h.get('last_error', '')[:90]}")
+    print(f"  上次补传           : {h.get('last_replay_at_human', '—')}  {h.get('last_replay_result', '')}")
+    print(f"  暂存待补传         : {h['spool_pending']} 条   （{_spool_file()}）")
+    print(f"  暂存已放弃         : {h['spool_dead']} 条   （{_dead_file()}）")
+
+    print("-" * 70)
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute("SELECT VERSION()")
+            ver = cur.fetchone()[0]
+        conn.close()
+        print(f"  实时连通性         : OK（服务端 {ver}）")
+    except Exception as e:
+        print(f"  实时连通性         : 失败 —— {type(e).__name__}: {e}")
+    print("=" * 70)
 
 
 def main():
@@ -573,9 +1144,20 @@ def main():
     parser.add_argument("--sync-skills", action="store_true", help="将当前技能台账同步至数据库")
     parser.add_argument("--import-refs", help="导入参考文献定义文件至数据库 (如 compile_references_100.py)")
 
+    parser.add_argument("--doctor", action="store_true", help="落库健康自检：开关/连通性/熔断/暂存积压")
+    parser.add_argument("--flush-spool", action="store_true", help="手动补传本地暂存的失败记录")
     parser.add_argument("--cleanup-traces", type=int, nargs="?", const=30, default=None, help="执行指定天数(默认30天)滚动清理过期工具调用轨迹")
 
     args = parser.parse_args()
+
+    if args.doctor:
+        print_db_doctor()
+        sys.exit(0)
+
+    if args.flush_spool:
+        ok, bad = spool_replay(limit=100000)
+        print(f"[OK] 补传完成：成功 {ok} 条，仍待补 {spool_count()} 条，放弃 {_count_lines(_dead_file())} 条。")
+        sys.exit(0 if bad == 0 else 1)
 
     if args.cleanup_traces is not None:
         affected = cleanup_expired_traces(days=args.cleanup_traces)

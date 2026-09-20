@@ -6,7 +6,7 @@ obsidian_bridge.py — Obsidian 知识库双向互通、在线端点接入与自
 核心特性：
 1. 【本地与在线双模知识库支持 (Local & Online Vaults)】：
    - 本地知识库：支持本地文件夹 (如 D:\\LLM-Wiki, ~/Documents/Obsidian Vault)；
-   - 在线知识库：支持填入在线知识库 URL (如 https://llm.example.com, REST API, WebDAV, SilverBullet)；
+   - 在线知识库：支持填入在线知识库 URL (如 https://your-wiki.example.com, REST API, WebDAV, SilverBullet)；
    - 访问密钥：支持填入访问密钥 / Bearer Token 进行安全鉴权；
    - 极其包容：在线地址与访问密钥【均可完全留空】！留空时不报错，自适应回退到纯本地知识库模式。
 2. 【首次自动侦测与同步方式决策 (Auto-Detection)】：
@@ -51,7 +51,7 @@ CUSTOM_SKILLS_DIR = EVOLUTION_DIR / "custom_skills"
 JOURNAL_DIR = EVOLUTION_DIR / "journal"
 
 DEFAULT_CANDIDATE_PATHS = [
-    Path("D:/LLM-Wiki"),
+    Path("D:/ObsidianVault"),
     Path.home() / "Documents" / "Obsidian Vault",
     Path.home() / "Obsidian",
     Path.home() / "Documents" / "LLM-Wiki"
@@ -365,7 +365,7 @@ def print_bridge_status():
     print("=" * 70)
     print("💡 快捷命令指南：")
     print("  - 设置本地路径: python scripts/obsidian_bridge.py --set-vault 'D:\\LLM-Wiki'")
-    print("  - 设置在线地址: python scripts/obsidian_bridge.py --set-online 'https://llm.example.com'")
+    print("  - 设置在线地址: python scripts/obsidian_bridge.py --set-online 'https://your-wiki.example.com'")
     print("  - 设置访问密钥: python scripts/obsidian_bridge.py --set-token '<your_token>' (留空可传 '')")
     print("  - 自动重新侦测: python scripts/obsidian_bridge.py --auto-detect")
     print("  - 导入所有技能: python scripts/obsidian_bridge.py --import-all")
@@ -377,7 +377,7 @@ def main():
     parser.add_argument("--status", action="store_true", help="查看当前知识库配置与同步模式")
     parser.add_argument("--auto-detect", action="store_true", help="重新触发自动环境探测并确定同步方式")
     parser.add_argument("--set-vault", nargs="?", const="", help="设置或更改本地 Obsidian 知识库路径 (传空重置)")
-    parser.add_argument("--set-online", nargs="?", const="", help="设置在线知识库地址 (如 https://llm.example.com，可留空)")
+    parser.add_argument("--set-online", nargs="?", const="", help="设置在线知识库地址 (如 https://your-wiki.example.com，可留空)")
     parser.add_argument("--set-token", nargs="?", const="", help="设置在线知识库访问密钥 / Bearer Token (可留空)")
     parser.add_argument("--clear-online", action="store_true", help="清空在线知识库地址与访问密钥")
     parser.add_argument("--import-all", action="store_true", help="从知识库扫描并导入 #skill 笔记至私有技能区")

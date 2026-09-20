@@ -4,7 +4,7 @@
 pull_persona_traits.py — 从知识库自适应拉取女友人格定义与温情特性的同步模块
 ============================================================================
 功能：
-1. 检查配置中的知识库端点或本地路径 (如 D:/LLM-Wiki 或 https://llm.example.com)；
+1. 检查配置中的知识库端点或本地路径 (如 D:/ObsidianVault 或 https://your-wiki.example.com)；
 2. 尝试从知识库中检索与“女友/人格/伴侣/沟通习惯”相关的定义与个性化偏好；
 3. 将特性萃取沉淀到本地 `.evolution/profile/persona_girlfriend.json`；
 4. 保证在开启女友模式时，AI 表达具有人情味与同理心，同时保持代码与工程的绝对严谨。
@@ -51,7 +51,7 @@ def pull_and_sync_traits(kb_path_or_url: str = "", token: str = "") -> Dict[str,
     traits = get_default_girlfriend_traits()
 
     # 1. 尝试从本地知识库检索
-    local_kb = Path(kb_path_or_url) if kb_path_or_url else Path("D:/LLM-Wiki")
+    local_kb = Path(kb_path_or_url) if kb_path_or_url else Path("D:/ObsidianVault")
     if local_kb.exists() and local_kb.is_dir():
         print(f"[*] 正在从本地知识库 [{local_kb}] 检索人格定义与沟通偏好...")
         # 搜索潜在的相关笔记

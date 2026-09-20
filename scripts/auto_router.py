@@ -376,8 +376,12 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
         try:
             import db_sync
             db_sync.record_router_audit_db(q, plan_fast)
-        except Exception:
-            pass
+            db_sync.record_tool_trace_db(
+                "auto-skills", "auto_router", action="route_dispatch",
+                user_query=q, stage="pre-flight", input_params={"mode": mode},
+                output_summary=_trace_summary(plan_fast), project_root=str(Path.cwd()))
+        except Exception as _e:
+            _db_note("route_trace(fast)", _e)
         return plan_fast
 
     # FULL_SDLC 完整模式：
@@ -483,14 +487,77 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
         "advisory_notes": notes,
         "execution_rule": "严格按照 pipeline 顺序依序执行各成员技能规范，各成员 SKILL.md 为单一事实源。"
     }
-    # 路由调用全链路自动落库
+    # 路由调用全链路自动落库：审计流水 + 工具链调用轨迹
     try:
         import db_sync
         db_sync.record_router_audit_db(q, plan_result)
+        db_sync.record_tool_trace_db(
+            "auto-skills", "auto_router", action="route_dispatch",
+            user_query=q, stage="pre-flight", input_params={"mode": mode},
+            output_summary=_trace_summary(plan_result), project_root=str(Path.cwd()))
+    except Exception as _e:
+        _db_note("route_trace(full)", _e)
+
+    return plan_result
+
+
+def _db_note(where: str, exc: BaseException) -> None:
+    """落库失败留痕。以前这里是 `except Exception: pass`——「没报错」被当成「在写」，
+    正是 record_tool_trace_db 长期没被调用却无人发现的原因。"""
+    try:
+        log_dir = Path(__file__).resolve().parent.parent / ".evolution"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        from datetime import datetime as _dt
+        with open(log_dir / "db_sync_errors.log", "a", encoding="utf-8") as f:
+            f.write(f"{_dt.now().isoformat(timespec='seconds')} [auto_router:{where}] "
+                    f"{type(exc).__name__}: {exc}\n")
     except Exception:
         pass
 
-    return plan_result
+
+def _trace_summary(plan: Dict[str, Any]) -> str:
+    """把路由结论压成一行，便于事后用 SQL 回溯「当时为什么走这条流水线」。"""
+    try:
+        steps = plan.get("pipeline") or []
+        names = ",".join(s.get("skill", "?") for s in steps)
+        # FAST_PATH 计划用的键是 task_tier、完整模式用的才是 tier —— 只读一个键
+        # 会让极速模式的轨迹永远显示 tier=None（实测踩过）。
+        tier = plan.get('tier') or plan.get('task_tier')
+        return (f"tier={tier}; focus={plan.get('primary_focus')}; "
+                f"steps={len(steps)}; pipeline=[{names}]")
+    except Exception:
+        return ""
+
+
+def cmd_trace(argv: List[str]) -> int:
+    """`auto_router.py trace ...` —— 显式把一次工具调用记进 tool_execution_traces。"""
+    ap = argparse.ArgumentParser(prog="auto_router.py trace", description="记录一次工具链调用到 MySQL")
+    ap.add_argument("tool_name", help="工具名，如 Bash / Read / Write / clean_flush_queue")
+    ap.add_argument("summary", nargs="?", default="", help="这一步做了什么（一行）")
+    ap.add_argument("--skill", default="auto-skills", help="所属技能")
+    ap.add_argument("--action", default="execute", help="动作，如 execute/read/write/clean")
+    ap.add_argument("--stage", default="execution", help="阶段，如 pre-flight/coordination/execution")
+    ap.add_argument("--query", default="", help="用户原始诉求")
+    ap.add_argument("--status", default="SUCCESS", choices=["SUCCESS", "FAILED", "SKIPPED"])
+    ap.add_argument("--error", default="", help="失败原因")
+    ap.add_argument("--duration-ms", type=int, default=0)
+    ap.add_argument("--project-root", default="", help="缺省用当前目录")
+    ap.add_argument("--client", default="CODE")
+    a = ap.parse_args(argv)
+    try:
+        import db_sync
+        ok = db_sync.record_tool_trace_db(
+            a.skill, a.tool_name, action=a.action, user_query=a.query, stage=a.stage,
+            output_summary=a.summary, status=a.status, error_message=a.error,
+            duration_ms=a.duration_ms,
+            project_root=a.project_root or str(Path.cwd()), client=a.client)
+        print(json.dumps({"ok": bool(ok), "tool": a.tool_name, "action": a.action,
+                          "stage": a.stage}, ensure_ascii=False))
+        return 0 if ok else 3
+    except Exception as e:
+        _db_note(f"cmd_trace:{a.tool_name}", e)
+        print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False))
+        return 3
 
 
 def cmd_list():
@@ -535,7 +602,7 @@ def main():
                 auto_update=True,
                 girlfriend_mode=False,
                 kb_sync_gf=True,
-                private_git="https://github.com/t-yang-only/skills-Management.git",
+                private_git="",
                 connect_all_agents=True
             )
 
@@ -611,6 +678,10 @@ def main():
         except Exception as e:
             print(f"[ERROR] 调用经验挖掘模块失败: {e}")
             sys.exit(1)
+
+    # 7. 显式记录一次工具链调用 (trace)
+    if len(sys.argv) > 1 and sys.argv[1] == "trace":
+        return cmd_trace(sys.argv[2:])
 
     ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版，深度融合 nm-skills 协同排他锁、MySQL 自动落库与私有 Git 同步)")
     ap.add_argument("query", nargs="*", help="任务描述文本，或协同/数据库子命令 (claim/done/board/renew/whoami/setup/connect-agents/db/experience/sync-private/install-skill)")

@@ -45,7 +45,7 @@ EVOLUTION_DIR = SKILL_ROOT / ".evolution"
 GITIGNORE_FILE = SKILL_ROOT / ".gitignore"
 
 DEFAULT_OBSIDIAN_CANDIDATES = [
-    Path("D:/LLM-Wiki"),
+    Path("D:/ObsidianVault"),
     Path.home() / "Documents" / "Obsidian Vault",
     Path.home() / "Obsidian",
 ]
@@ -222,7 +222,7 @@ def main():
     parser = argparse.ArgumentParser(description="auto-skills 个人私有进化仓库与双轨隔离初始化向导")
     parser.add_argument("--init", action="store_true", help="执行私有进化仓库初始化与目录规划")
     parser.add_argument("--obsidian", help="指定绑定的本地 Obsidian 知识库路径 (如 D:\\LLM-Wiki，可留空)")
-    parser.add_argument("--online-url", help="指定在线知识库 URL (如 https://llm.example.com，可留空)")
+    parser.add_argument("--online-url", help="指定在线知识库 URL (如 https://your-wiki.example.com，可留空)")
     parser.add_argument("--access-token", help="指定在线知识库访问密钥 / Bearer Token (可留空)")
     parser.add_argument("--remote", help="指定远端私有 Git 仓库 URL (如 git@github.com:user/my-skills-vault.git)")
     parser.add_argument("--status", action="store_true", help="查看当前私有进化状态")

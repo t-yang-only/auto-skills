@@ -187,7 +187,12 @@ python scripts/auto_router.py --mode fast "修复 auth.py 中的 SyntaxError"
 
 支持 MySQL 8.4 云端/内网数据库与 SQLite 本地双模：
 - **专用权限最小化子账户**：日常工具链落库采用只具备 `SELECT, INSERT, UPDATE, DELETE` 权限的专用子账户（如 `auto_agent`），彻底杜绝 DROP/ALTER 等高危系统权限污染；
-- **全链路自动落库**：任务认领 (`nm_tasks`)、工作完成与日志 (`nm_work_logs`)、工具链调用轨迹 (`tool_execution_traces`)、技能资产台账 (`skill_registry`)、路由器审计 (`router_audit_logs`)、参考文献定义 (`academic_references`) 全部无感自动写入；
+- **全链路自动落库**：任务认领 (`nm_tasks`)、工作完成与日志 (`nm_work_logs`)、工具链调用轨迹 (`tool_execution_traces`)、技能资产台账 (`skill_registry`)、路由器审计 (`router_audit_logs`)、参考文献定义 (`academic_references`) 全部无感自动写入。工具链轨迹的**自动触发点**（诚实边界：能自动拦的是本 Skill 自己的执行链，"任意 harness 里每一次 Read/Bash 调用"需要 harness 级钩子，不在本 Skill 能力内）：
+  - `auto_router.py <任意查询>` -> `route_dispatch` 轨迹（stage=pre-flight，含 tier 与流水线摘要）
+  - `nm_register.py claim` / `done` -> `claim` / `done` 轨迹（stage=coordination）
+  - 其余工具调用显式记录：`auto_router.py trace <工具名> "<做了什么>" [--action] [--stage] [--status FAILED --error "..."] [--duration-ms N]`
+  - Python 内用 `db_sync.trace_tool(...)` 上下文管理器（自动测耗时、自动判成败）；
+  - **落库失败绝不静默**：统一写 `.evolution/db_sync_errors.log`（此前是 `except: pass`，"没报错"会被误当成"在写"）；
 - **30天滚动清理**：工具调用轨迹自动滚动清理超过 30 天的历史记录，保持数据库轻量高响应；
 - **历史经验挖掘**：遇到相似工程报错或多 Agent 协作冲突时，自动通过 `scripts/experience_mining.py` 挖掘过往成功避坑经验。
 
@@ -209,3 +214,86 @@ python scripts/auto_router.py exp --top-tools
 - **多渠道消息聚合广播** (`scripts/notify_push.py`)：支持配置 Server酱 Turbo (微信)、企业微信、飞书、钉钉 (带签名)、PushPlus、Telegram、Bark、自定义 Webhook，任务完成或 Git 提交时并行广播；
 - **Obsidian 本地/在线知识库双模桥梁** (`scripts/obsidian_bridge.py`)：支持配置在线端点与访问密钥（均可留空），首次运行自动探测本地/在线环境并决定最优同步方式；
 - **双轨私有进化区** (`.evolution/`)：独立 Git 仓库保护个人偏好与敏感凭据，上游主库更新时零覆盖、零污染。
+
+
+---
+
+## 4. 意见请求（Agent 向人提问的唯一通道）
+
+**当 Agent 走到必须由人拍板的岔路时，不要自己替人决定，也不要只是把问题打印在对话里等人看见**——
+用本 skill 提供的通道开一张单子：人会在他自己的知识库里看到，答复后 Hermes 会通知回你。
+
+### 4.1 什么时候必须提问
+
+- 两条路都合理，但选了就不好回头（改架构、删数据、换渠道、对外发布）
+- 需要人的价值取舍（省钱 vs 稳妥、快 vs 全）
+- 涉及外部副作用且没有明确授权（装软件、花钱、发消息、改生产配置）
+- 信息不足且只有人手里有（某个口令、某个业务口径）
+
+**不需要提问**：能从代码/文档/知识库查到答案的，自己查；实现细节，自己定。
+
+### 4.2 怎么提问
+
+```bash
+python scripts/opinion_request.py ask \
+  --title "一句话问题" \
+  --question "具体问什么，要能独立看懂" \
+  --context "背景：我在做什么、卡在哪、为什么必须你拍板" \
+  --option "A:做什么、代价、后果" \
+  --option "B:做什么、代价、后果" \
+  [--project D:\foo] [--harness codex] [--session xxx] [--urgency high]
+```
+
+- **选项给 2–5 个**，每个都要能独立看懂；也可以让人不选、直接写意见。
+- **一张单子只问一件事。**
+
+### 4.3 身份是硬要求（不要跳过）
+
+脚本会自动采集 `harness / session / project` 三项，采集不到会**直接报错要求你显式传入**。
+这三项决定 Hermes 事后能不能找回你——**没有它们的单子等于白问**。
+
+```bash
+python scripts/opinion_request.py whoami    # 先看自动采到了什么
+```
+
+支持的自动探测来源：`AGW_HARNESS` / `DSH_SESSION_ID` / `CLAUDE_*` / `CODEX_*` / `CURSOR_*` / `GEMINI_*` / `PI_*` / `GROK_*` / `HERMES_HOME`。
+
+### 4.4 身份前缀（写进知识库的硬规定）
+
+**凡是 Agent 写进知识库的任何文字，首行必须是身份行**：
+
+```
+[HARNESS <harness> | session=<会话ID> | project=<项目文件夹>]
+```
+
+本脚本已自动带上。手工写时也必须遵守。
+
+> **不带这个前缀的文字 = 人写的。** Agent 永远不要伪造或省略它——
+> 否则 Hermes 会把人工回复误判成 Agent 消息，或者反过来，
+> 导致「人已经选好了却没人去划掉选项」这种事故。
+
+### 4.5 取回答复
+
+```bash
+python scripts/opinion_request.py list            # 有无新答复
+python scripts/opinion_request.py check <单号>     # 看某张单子的结论
+```
+
+拿到答复后**按结论执行**，并在知识库对应位置收尾（划掉待办、更新页面）。
+
+### 4.6 允许做什么、不允许做什么
+
+网关按令牌分级，`agent` 令牌的权限是：
+
+| 能力 | 允许 |
+|---|---|
+| 读知识库（增量识别用 `?since=` 游标） | ✅ 全域只读 |
+| 新建意见请求单 | ✅ 仅 `意见请求/待回答/` |
+| 写自己的登记文件 | ✅ 仅 `意见请求/agent登记/<你的harness>.md` |
+| 改已存在的意见请求单 | ❌ |
+| 写 `随心记/` `日记/` `知识/` `index.md` | ❌ **用户的书写区，Agent 不得触碰** |
+| 写 `意见请求/索引.md` `已回答/` `说明.md` | ❌ 那是 Hermes 的地盘 |
+| 读 `_知识库访问指南.md` 等含密钥的文件 | ❌ |
+| 写知识库任何其他位置 | ❌ |
+
+**除 Hermes 外，任何 Agent 都不能写用户的书写区。** 这是刻意设计，不要试图绕过。

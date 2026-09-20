@@ -1,127 +1,130 @@
-# ==============================================================================
-# auto-skills 统一全局配置文件 (v3.0 旗舰版)
-# ==============================================================================
-# 说明：
-# 首次下载或初始化时，所有细节字段均默认为空或未配置状态。
-# 任意 AI Agent 首次调用时，必须优先辅助用户完成基础配置。
-# ==============================================================================
-
-version: "3.0.0"
-
-# 【系统引导状态标记】
-# false 表示尚未完成首次引导配置；完成引导后自动置为 true
-is_configured: false
-
-# ------------------------------------------------------------------------------
-# 1. 数据库存储与调用工具链自动落库 (MySQL 8.4 Dedicated Sub-Account)
-# ------------------------------------------------------------------------------
-database:
-  # 是否启用数据库存储与全链路自动落库 (true / false，默认留空待配置)
-  enabled: null
-  # 数据库类型 (mysql / sqlite)
-  type: "mysql"
-  # 主机与端口
-  host: ""
-  port: 3306
-  # 数据库名称
-  dbname: "auto_skills"
-  # 专用于日常 Agent 工具链上传与落库的权限最小化子账户 (防止主库/系统表污染)
-  user: ""
-  # 专用子账户密码
-  password: ""
-  # 工具链调用追踪记录自动保留天数 (默认 30 天滚动清理过期轨迹)
-  retention_days: 30
-  # 启动时是否自动执行 30 天超期数据滚动清理
-  auto_cleanup_expired_traces: true
-
-# ------------------------------------------------------------------------------
-# 2. 公开开源主库自动更新 (Auto Update Settings)
-# ------------------------------------------------------------------------------
+version: 3.0.0
+is_configured: true
 auto_update:
-  # 是否自动检查并下载公开 auto-skills 仓库的更新 (true / false，默认留空待配置)
-  auto_download_public_update: null
-  # 检查更新的时间间隔（单位：小时，留空默认 24）
-  check_interval_hours: null
-  # 公开仓库 Git 地址
-  remote_git_url: "https://github.com/t-yang-only/auto-skills.git"
-
-# ------------------------------------------------------------------------------
-# 3. 多渠道消息推送配置 (Multi-Channel Notification Settings)
-# ------------------------------------------------------------------------------
+  auto_download_public_update: true
+  check_interval_hours: 24
+  remote_git_url: https://github.com/t-yang-only/auto-skills.git
 notifications:
-  # 是否全局启用消息推送 (true / false，默认留空)
   enabled: null
-  # Server酱 Turbo SendKey (微信推送，留空表示不启用)
-  serverchan_sendkey: ""
-  # 企业微信群机器人 Webhook 地址 (留空表示不启用)
-  wecom_webhook: ""
-  # 飞书群机器人 Webhook 地址 (留空表示不启用)
-  feishu_webhook: ""
-  # 钉钉机器人 Webhook 地址 (留空表示不启用)
-  dingtalk_webhook: ""
-  # 钉钉机器人加签安全密钥 (留空表示不加签)
-  dingtalk_secret: ""
-  # PushPlus 微信推送 Token (留空表示不启用)
-  pushplus_token: ""
-  # Telegram Bot Token
-  telegram_bot_token: ""
-  # Telegram 接收方 Chat ID
-  telegram_chat_id: ""
-  # iOS Bark 推送 URL
-  bark_url: ""
-
-# ------------------------------------------------------------------------------
-# 4. nm-skills 牛马多 Agent 协同与排他防撞引擎设置 (Flagship Coordination)
-# ------------------------------------------------------------------------------
+  serverchan_sendkey: ''
+  wecom_webhook: ''
+  feishu_webhook: ''
+  dingtalk_webhook: ''
+  dingtalk_secret: ''
+  pushplus_token: ''
+  telegram_bot_token: ''
+  telegram_chat_id: ''
+  bark_url: ''
 nm_skills:
-  # 是否永远默认在项目根目录下建立执行登记与任务认领台账 (agent_word/)
-  # (true / false，默认留空待用户确认)
-  always_enable_project_ledger: null
-  # 默认当前 Agent 客户端标识 (如 CODE / CUR / DB / DS / CLAUDE / DSH，留空自动探测)
-  default_client_id: ""
-  # 任务原子认领排他锁的默认租约有效时长 (单位：分钟，留空默认 45)
-  default_lease_minutes: null
-  # 是否在修改任何代码前自动原子认领任务并加排他锁 (true / false，留空默认 true)
-  auto_claim_before_edit: null
-  # 是否在动笔前自动检查文件级并发占用冲突 (true / false，留空默认 true)
-  auto_check_file_conflicts: null
-  # 启动时是否自动扫描并清理超期僵尸锁 (true / false，留空默认 true)
-  auto_clean_stale_locks: null
-  # 项目内协作台账目录名称 (留空默认 "agent_word")
-  ledger_dir_name: "agent_word"
-
-# ------------------------------------------------------------------------------
-# 5. 人格与表达层配置 (包含女朋友人格模式与知识库拉取)
-# ------------------------------------------------------------------------------
+  always_enable_project_ledger: true
+  default_client_id: CODE
+  default_lease_minutes: 45
+  auto_claim_before_edit: true
+  auto_check_file_conflicts: true
+  auto_clean_stale_locks: true
+  ledger_dir_name: agent_word
 persona:
   talk_like_girlfriend:
-    # 是否在配置目录中选择默认启用女友人格层 (true / false，默认留空待配置)
-    default_enabled: null
-    # 如果启用，是否从本地或在线知识库中拉取简单的女友人格定义与温情特性 (true / false)
-    kb_sync_traits: null
-    # 知识库来源路径或在线端点 (如 D:\ObsidianVault 或 https://llm.example.com，留空自动侦测)
-    kb_source_url_or_path: ""
-    # 知识库访问密钥 / Bearer Token (可留空)
-    kb_api_token: ""
-    # 提取后的人格特性本地缓存文件
-    traits_cache_file: ".evolution/profile/persona_girlfriend.json"
-
-# ------------------------------------------------------------------------------
-# 6. 用户专属个人私有 Git 进化仓库配置 (双轨物理隔离)
-# ------------------------------------------------------------------------------
+    default_enabled: false
+    kb_sync_traits: true
+    kb_source_url_or_path: D:/ObsidianVault
+    kb_api_token: ''
+    traits_cache_file: .evolution/profile/persona_girlfriend.json
 evolution_vault:
-  # 个人私有 Git 仓库 URL (如 https://github.com/t-yang-only/skills-Management.git)
-  private_git_remote: ""
-  # 当动态自安装新技能或沉淀知识时，是否自动 commit 并 push 到私有 Git 库
-  auto_sync_on_install: null
-  # 自定义私有技能归纳子目录
-  custom_skills_dir: ".evolution/custom_skills"
-
-# ------------------------------------------------------------------------------
-# 7. 本机扫描 Agent 互联集成配置 (Agent Connection & Symlinks)
-# ------------------------------------------------------------------------------
+  private_git_remote: 
+  auto_sync_on_install: true
+  custom_skills_dir: .evolution/custom_skills
 agent_connections:
-  # 是否在首次配置完成后自动扫描本机所有 Agent 技能目录
-  auto_scan_on_startup: null
-  # 扫描到的已知 Agent 目录映射与已建立连接的 Agent 列表
-  connected_agents: []
+  auto_scan_on_startup: true
+  connected_agents:
+  - Codex CLI / Extension
+  - Claude Code / ~/.agents
+  - DeepSeek Harness (DSH)
+  - WorkBuddy AI
+  - Claude Code Dedicated
+  - Cursor IDE
+# ==============================================================================
+# 数据库落库（完整说明见 随仓库分发的接入指南）
+# 一句话：落库是「旁路」——写得进去就写，写不进去只记日志，绝不影响主流程。
+# ==============================================================================
+database:
+  # ── 总开关 ────────────────────────────────────────────────────────────────
+  # false = 完全不落库：不连库、不建表、不写任何表、不做超期清理。
+  # 想彻底关掉这个功能，只改这一行就够了。
+  enabled: true
+
+  # ── 连接方式（三选一）──────────────────────────────────────────────────────
+  #   mysql     远端 MySQL（8.x / 5.7 均可），用下面的 host/port/user/dbname
+  #   sqlite    本地文件库，零依赖零配置，落在 .evolution/auto_skills.db
+  #   disabled  等价于 enabled: false（保留 type 字段是为了让配置表意清楚）
+  type: mysql
+
+  # mysql 直连参数（type: mysql 时生效）
+  host: db.example.com
+  port: 42870
+  dbname: auto_skills
+  user: auto_agent
+
+  # ── 凭据来源（三选一，按下面列出的顺序解析，命中即用）──────────────────────
+  #   1) password_env   环境变量名（适合 CI / 容器 / 临时覆盖）
+  #   2) password_file  文件路径，相对本技能根目录；文件内容即密码 —— 推荐
+  #   3) password       直接把密码写在这里 —— 不推荐，本文件是 git 仓库会被推送
+  #
+  # 三者都空则报错停止（不会静默用某个内置账号连上）。
+  password_file: config/db.password
+  password_env: ''
+  password: ''
+
+  # sqlite 路径（type: sqlite 时生效；留空用默认 .evolution/auto_skills.db）
+  sqlite_path: ''
+
+  # ── 分项开关：可单独关掉某一类落库，其余照常写 ─────────────────────────────
+  # 未列出的项按「开启」处理，所以旧配置不改也完全保持原行为。
+  streams:
+    task_claim: true           # -> nm_tasks               多 Agent 认领 / 租约锁
+    task_done: true            # -> nm_work_logs           任务完成登记与改动清单
+    tool_trace: true           # -> tool_execution_traces  工具调用轨迹
+    router_audit: true         # -> router_audit_logs      路由判定审计
+    skill_registry: true       # -> skill_registry         技能台账
+    academic_references: true  # -> academic_references    参考文献
+
+  # ── 保留策略 ──────────────────────────────────────────────────────────────
+  retention_days: 30
+  auto_cleanup_expired_traces: true
+
+  # ------------------------------------------------------------------
+  # 数据库不可用时的自动预案：熔断 + 本地暂存 + 自动补传
+  # 落库是【旁路】——数据库挂了既不能丢数据，也不能拖慢 agent。
+  # 实现在 scripts/db_sync.py 的「容错层」；自检用 python db_sync.py --doctor
+  # ------------------------------------------------------------------
+  failover:
+    # 总开关。false = 退回「失败只记日志」的老行为（不熔断、不暂存、不补传）
+    enabled: true
+    # 连续失败多少次后熔断。熔断期间不再发起连接——否则每次落库都要干等
+    # 连接超时（实测 8 秒/次），数据库挂了会把 agent 拖垮。
+    breaker_threshold: 3
+    # 熔断冷却秒数。到点后放行一次试探，成功即恢复并自动补传。
+    breaker_cooldown_seconds: 120
+    # 失败时把「函数名 + 参数」暂存到 .evolution/db_spool/pending.jsonl，库恢复后自动回灌
+    spool_enabled: true
+    # 暂存上限（条）。超出后丢弃新记录并写日志，保护磁盘
+    spool_max_records: 2000
+    # 超过这么多天的暂存移入 dead.jsonl（不再补传，但人工可查）
+    spool_max_age_days: 7
+    # 单次最多补传多少条 / 补传节流间隔（秒）
+    replay_batch: 50
+    replay_interval_seconds: 60
+    # 单条记录补传尝试上限，超出移入 dead.jsonl
+    max_attempts: 5
+    # 熔断打开时推送告警（复用 notifications.serverchan_sendkey；留空则不推）
+    notify_on_breaker: false
+
+agent_gateway:
+  # Agent 网关（意见请求 / 知识库只读 / 事件上报）
+  enabled: true
+  url: https://your-gateway.example.com
+  # 令牌从文件读，绝不写进本文件（本 skill 是 git 仓库，会被推送）
+  token_file: config/gateway.token
+  timeout_seconds: 30
+  # 提问时的默认紧急度：normal / high
+  default_urgency: normal
