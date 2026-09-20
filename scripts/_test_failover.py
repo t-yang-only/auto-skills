@@ -19,7 +19,7 @@ try:
 except Exception:
     pass
 
-SRC = Path(r"<repo>")
+SRC = Path(__file__).resolve().parent.parent   # 仓库根：从本文件位置推导，不写死绝对路径
 TESTROOT = Path(tempfile.gettempdir()) / "as-failover-test"
 MARK = "FAILOVER-TEST"
 DEAD_HOST = "10.255.255.1"          # 黑洞地址：连不上，且会一直等到超时
@@ -114,7 +114,7 @@ sys.path.insert(0, '.')
 import db_sync
 t0 = time.time()
 ok = db_sync.record_tool_trace_db('auto-skills', 'FailoverProbe', action='execute',
-                                  user_query={mark!r} + '-TRACE', project_root='<repo>')
+                                  user_query={mark!r} + '-TRACE', project_root=str(SRC))
 print(json.dumps({{'ok': bool(ok), 'call_seconds': round(time.time() - t0, 2)}}))
 """
 
