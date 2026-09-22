@@ -265,6 +265,35 @@ def main():
         check("%s 脚本树覆盖全部 .py" % fn, not missing,
               "未列出: %s" % (missing or "无"))
 
+    # ---- 9b. references/ 目录树覆盖全部文档 ----
+    # 2026-09-22 实测：scripts/ 与 tools/ 都有"树必须覆盖全部实际成员"的断言，
+    # 唯独 references/ 没有——于是新增 references/本机运维层.md 时两处树都没提它，
+    # 而 44 项断言全绿。同一类脱节必须被同一类断言拦住。
+    print("\n[9b] references/ 目录树覆盖全部文档")
+    refs_dir = os.path.join(ROOT, "references")
+    actual_refs = set()
+    if os.path.isdir(refs_dir):
+        actual_refs = {f for f in os.listdir(refs_dir) if os.path.isfile(os.path.join(refs_dir, f))}
+    for fn in ("README.md", "SKILL.md"):
+        fp = os.path.join(ROOT, fn)
+        if not os.path.isfile(fp):
+            continue
+        text = io.open(fp, encoding="utf-8").read().replace("\r\n", "\n")
+        m = re.search(r"```text\n(.*?)```", text, re.DOTALL)
+        if not m:
+            continue
+        listed = set()
+        for ln in m.group(1).split("\n"):
+            # 实测：references/ 的条目在树里是「4 空格 + ├──」而非「│   ├──」
+            # （子层级用的是空格缩进不是竖线），所以前缀必须两种都认。
+            mm = re.match(r"^[\s\u2502]*[\u251c\u2514]\u2500\u2500\s+(\S+\.md)", ln)
+            if mm:
+                listed.add(mm.group(1))
+        # 只比对 references/ 下真实存在的文件，避免把别的目录同名文件算进来
+        missing = sorted(actual_refs - listed)
+        check("%s 引用树覆盖 references/ 全部文档" % fn, not missing,
+              "未列出: %s" % (missing or "无"))
+
     # ---- 10. 技能多根寻址：固定根优先 + 动态发现去重 ----
     # 只靠硬编码根会漏掉用户真正在用的 harness（实测本机 20+ 个根里有 17 个盲区），
     # 但「发现了根」和「解析优先级还对」是两件事，必须都断言。
