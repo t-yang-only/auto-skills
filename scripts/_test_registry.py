@@ -877,6 +877,26 @@ def main():
           ("词表已漏: %s" % _miss_weak) if _miss_weak else "%d/%d 命中"
           % (len(WEAK_SAMPLES), len(WEAK_SAMPLES)))
 
+    # [13] 矩阵 category 与 registry 一致
+    # 单一真相源：矩阵第三列曾自成一套标签（manage / pre-flight / clarify），
+    # 与 registry 的 category 分叉 7 处 —— 同一个技能的职责在两个文件里说法
+    # 不同，读的人不知道信哪个。这条断言把两者钉死在一起。
+    try:
+        _root = pathlib.Path(ROOT)
+        _reg = json.loads((_root / "tools" / "registry.json").read_text(encoding="utf-8"))["tools"]
+        _cm = (_root / "references" / "capability-map.md").read_text(encoding="utf-8")
+        _rows = re.findall(r"^\|\s*\d+\s*\|\s*`([^`]+)`\s*\|\s*`([^`]+)`", _cm, re.M)
+        _bad = []
+        for _name, _cat in _rows:
+            _real = _reg.get(_name, {}).get("category")
+            if _real and _real != _cat:
+                _bad.append("%s(矩阵=%s registry=%s)" % (_name, _cat, _real))
+        check("矩阵 category 与 registry 一致（%d 行 / %d 技能）" % (len(_rows), len(_reg)),
+              bool(_rows) and not _bad,
+              ("分叉: %s" % _bad[:3]) if _bad else "全部一致")
+    except Exception as _e:
+        check("矩阵 category 与 registry 一致", False, "异常: %s" % _e)
+
     return report()
 
 

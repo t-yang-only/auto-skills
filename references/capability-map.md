@@ -1,27 +1,27 @@
-# auto-skills 35 大核心成员能力映射矩阵 (Capability Map v2.6)
+# auto-skills 37 大核心成员能力映射矩阵 (Capability Map v2.6)
 
-> auto-skills 采用母 Skill 架构，内部 `tools/` 完整收拢 35 个顶尖高星通用成员技能。
+> auto-skills 采用母 Skill 架构，内部 `tools/` 完整收拢 37 个顶尖高星通用成员技能。
 > 具备 6 级多根自适应寻址机制，兼顾本地独立自洽与系统级跨环境调用。
 > 本表的权威数据源是 `tools/registry.json`（由 `scripts/tool_onboarder.py --scan` 生成）。
 
 ---
 
-## 1. 35 大成员能力全景矩阵
+## 1. 37 大成员能力全景矩阵
 
 | 序号 | 成员 Skill | 生命周期阶段 | 核心定位与职责 |
 |---|---|---|---|
-| 01 | `using-superpowers` | `pre-flight` | **全局基准**：每次动作前强制全盘扫描可用技能，输出声明 |
-| 02 | `skills-manager-cli` | `manage` | 驱动 `skm` 工具，完成全平台软链接纳管、跨端同步与修复 |
-| 03 | `codex-memory-guard` | `manage` | 跨轮任务边界防护、关键记忆写入与上下文压缩守卫 |
-| 04 | `nm-skills` | `manage` | 多 Agent 原子任务排他认领、防同号冲突与工作台账 (v2.0) |
+| 01 | `using-superpowers` | `general` | **全局基准**：每次动作前强制全盘扫描可用技能，输出声明 |
+| 02 | `skills-manager-cli` | `implement` | 驱动 `skm` 工具，完成全平台软链接纳管、跨端同步与修复 |
+| 03 | `codex-memory-guard` | `handoff` | 跨轮任务边界防护、关键记忆写入与上下文压缩守卫 |
+| 04 | `nm-skills` | `handoff` | 多 Agent 原子任务排他认领、防同号冲突与工作台账 (v2.0) |
 | 05 | `find-skills` | `acquire` | 「有没有技能做 X」：调用 npx skills 快速安装社区技能 |
 | 06 | `skill-discovery` | `acquire` | 社区技能多维对比、选型评估与质量审查 |
 | 07 | `skillnet` | `acquire` | 技能供应链：将现有代码/文档/日志/轨迹逆向沉淀为标准技能 |
 | 08 | `codebase-onboarding` | `understand` | 陌生仓库系统侦察，输出架构映射、入口目录与上手指南 |
-| 09 | `grill-me` | `clarify` | 方案质询、压力测试、反例深挖，极限暴露需求漏洞 |
+| 09 | `grill-me` | `design` | 方案质询、压力测试、反例深挖，极限暴露需求漏洞 |
 | 10 | `brainstorming` | `design` | **硬门禁**：意图与设计深度对话，未获用户批准严禁编码 |
 | 11 | `markdown-viewer` | `design` | 架构可视化：Mermaid 流程图/时序图、Vega 交互图表生成与渲染 |
-| 12 | `test-driven-development` | `implement` | TDD 红绿重构铁律：先写失败测试用例，再写业务实现 |
+| 12 | `test-driven-development` | `verify` | TDD 红绿重构铁律：先写失败测试用例，再写业务实现 |
 | 13 | `ponytail` | `implement` | 极简代码哲学：YAGNI、标准库优先、严控新依赖与代码冗余 |
 | 14 | `cli-creator` | `implement` | 将 API、本地脚本或后台服务封装为标准工业级 CLI 命令行工具 |
 | 15 | `jupyter-notebook` | `implement` | 交互式数据科学、算法原型探索与 Jupyter (.ipynb) 脚手架 |
@@ -44,7 +44,9 @@
 | 32 | `using-git-worktrees` | `implement` | **物理隔离**：并行 Agent 各用一个 worktree，与 nm-skills 认领锁互补 |
 | 33 | `requesting-code-review` | `verify` | **请人审查**：交可验证上下文与自审结果，与 receiving-code-review 成对 |
 | 34 | `writing-plans` | `design` | **写计划**：把已定方向拆成可验证、可提交的步骤，减少执行时的决策 |
-| 35 | `finishing-a-development-branch` | `verify` | **分支收尾**：合并前清单、合并形状选择、清理 worktree 与认领，放弃时留记录 |
+| 35 | `finishing-a-development-branch` | `handoff` | **分支收尾**：合并前清单、合并形状选择、清理 worktree 与认领，放弃时留记录 |
+| 36 | `resolving-merge-conflicts` | `verify` | **解冲突**：追第一手来源定意图，能并存就并存，绝不 --abort |
+| 37 | `writing-for-agents` | `design` | **元技能**：指针措辞决定触发，禁止是失败模式，引领词锚定执行 |
 
 ---
 

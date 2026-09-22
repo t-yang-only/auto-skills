@@ -1,5 +1,6 @@
 ---
 name: finishing-a-development-branch
+x-category: handoff
 description: "Close out a branch properly: verify before merging, pick the right merge shape, clean up the worktree and the task ledger, and leave a record when the work is abandoned instead of merged. Use when a branch or worktree is done, before merging / 合并 / 收尾, when the user asks to wrap up / 收尾 / 合并分支, or when work is about to be discarded."
 ---
 
