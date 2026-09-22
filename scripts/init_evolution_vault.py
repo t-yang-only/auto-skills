@@ -23,7 +23,7 @@ init_evolution_vault.py — 个人私有进化仓库初始化与双轨隔离向�
 3. 【引导与自动化】：
    - 首次使用引导：支持自动检测并向用户发起进化引导；
    - 自动初始化私有 Git 仓库（可选绑定 GitHub / Gitee 私有仓库远端）；
-   - 自动检测并挂载本地 Obsidian 知识库 (如 D:\\ObsidianVault)。
+   - 自动检测并挂载本地 Obsidian 知识库 (如 D:\\YourVault)。
 """
 
 import os
@@ -98,7 +98,7 @@ def init_evolution_structure(
 ## 目录职能：
 - `profile/`: 存放个人工作偏好、代码风格、口癖、常用模板与专属规则；
 - `custom_skills/`: 存放你自己编写或孵化的私有 Skill（受 auto_router.py 优先解析寻址）；
-- `obsidian_sync/`: 与本地 Obsidian 知识库 (如 D:\\ObsidianVault) 的同步双向映射区；
+- `obsidian_sync/`: 与本地 Obsidian 知识库 (如 D:\\YourVault) 的同步双向映射区；
 - `secrets/`: 本地专用凭据 (API Keys, Token, 敏感配置)；
 - `journal/`: 历史研发任务复盘日志与经验总结。
 
@@ -221,7 +221,7 @@ def check_evolution_status() -> Dict[str, Any]:
 def main():
     parser = argparse.ArgumentParser(description="auto-skills 个人私有进化仓库与双轨隔离初始化向导")
     parser.add_argument("--init", action="store_true", help="执行私有进化仓库初始化与目录规划")
-    parser.add_argument("--obsidian", help="指定绑定的本地 Obsidian 知识库路径 (如 D:\\ObsidianVault，可留空)")
+    parser.add_argument("--obsidian", help="指定绑定的本地 Obsidian 知识库路径 (如 D:\\YourVault，可留空)")
     parser.add_argument("--online-url", help="指定在线知识库 URL (如 https://your-wiki.example.com，可留空)")
     parser.add_argument("--access-token", help="指定在线知识库访问密钥 / Bearer Token (可留空)")
     parser.add_argument("--remote", help="指定远端私有 Git 仓库 URL (如 git@github.com:user/my-skills-vault.git)")

@@ -131,7 +131,7 @@ def run_auto_setup(
     cfg["persona"]["talk_like_girlfriend"]["kb_sync_traits"] = kb_sync_gf
     if girlfriend_mode and kb_sync_gf:
         print("[*] 正在从知识库拉取女友人格特性...")
-        pull_persona_traits.pull_and_sync_traits("D:/ObsidianVault")
+        pull_persona_traits.pull_and_sync_traits()  # 路径由 pull_persona_traits 按已保存配置解析
     print(f"[*] 女友人格模式: {'默认启用' if girlfriend_mode else '默认关闭 (可通过 /gf 显式触发)'}")
 
     # 4. 私有 Git 仓库

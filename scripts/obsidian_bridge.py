@@ -5,7 +5,7 @@ obsidian_bridge.py — Obsidian 知识库双向互通、在线端点接入与自
 ==================================================================================
 核心特性：
 1. 【本地与在线双模知识库支持 (Local & Online Vaults)】：
-   - 本地知识库：支持本地文件夹 (如 D:\\ObsidianVault, ~/Documents/Obsidian Vault)；
+   - 本地知识库：支持本地文件夹 (如 D:\\YourVault, ~/Documents/Obsidian Vault)；
    - 在线知识库：支持填入在线知识库 URL (如 https://your-wiki.example.com, REST API, WebDAV, SilverBullet)；
    - 访问密钥：支持填入访问密钥 / Bearer Token 进行安全鉴权；
    - 极其包容：在线地址与访问密钥【均可完全留空】！留空时不报错，自适应回退到纯本地知识库模式。
@@ -364,7 +364,7 @@ def print_bridge_status():
     print(f"- 监听同步文件夹 : {', '.join(cfg.get('sync_folders', []))}")
     print("=" * 70)
     print("💡 快捷命令指南：")
-    print("  - 设置本地路径: python scripts/obsidian_bridge.py --set-vault 'D:\\ObsidianVault'")
+    print("  - 设置本地路径: python scripts/obsidian_bridge.py --set-vault 'D:\\YourVault'")
     print("  - 设置在线地址: python scripts/obsidian_bridge.py --set-online 'https://your-wiki.example.com'")
     print("  - 设置访问密钥: python scripts/obsidian_bridge.py --set-token '<your_token>' (留空可传 '')")
     print("  - 自动重新侦测: python scripts/obsidian_bridge.py --auto-detect")
