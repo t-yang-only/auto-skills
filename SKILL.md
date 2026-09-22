@@ -3,7 +3,7 @@ name: auto-skills
 description: >
   Next-Gen AI Development Workflow Orchestrator, Multi-Skill Router & Multi-Agent Coordination Hub (v3.0 Flagship).
   深度融合多 Agent 原子任务认领与排他工作台账中枢 (nm-skills 牛马协同中枢)：原生提供任务独占锁 (claim)、租约排他锁 (Lease with TTL)、严格单调防撞编号分配器、实时任务看板 (board) 与工作日志自动归档，彻底根除多 Agent 并发抢跑同一任务、序号同号冲突与文件覆盖痛点。
-  Bundles 32 top-tier universal workflow skills with zero-missing multi-root fallback resolution and full SDLC lifecycle stage routing:
+  Bundles 33 top-tier universal workflow skills with zero-missing multi-root fallback resolution and full SDLC lifecycle stage routing:
   using-superpowers (baseline pre-flight), nm-skills (atomic task claim & mutual exclusion ledger), grill-me (Socratic requirement stress-test), brainstorming (intent/design hard gate),
   codebase-onboarding (unfamiliar repo recon), markdown-viewer (architectural diagrams), ponytail (YAGNI minimal coding),
   test-driven-development (TDD red-green-refactor), systematic-debugging (4-phase root cause), code-review (5-axis QA),
@@ -22,7 +22,7 @@ metadata:
 
 `auto-skills` 是面向复杂软件工程、AI 自治研发与多 Agent 协同的 **端到端工作流调度、排他防撞与技能编排总控引擎**。
 
-它深度融合了 **多 Agent 牛马协同台账 (nm-skills v2.0)**，自洽收拢了 **32 个顶流高星通用 Agent Skills**，不仅打通了从「前置自愈 -> 系统认知 -> 需求施压 -> 设计门禁 -> TDD/YAGNI实施 -> 根因调试 -> 5轴代码严审 -> 安全防线 -> 自动化测试 -> 交付收尾与记忆归档」的完整工业级生命周期闭环，更彻底解决了**多 Agent 在同一工程下并发作业时抢跑同一任务、编号同号冲突与代码互撞覆盖**的行业顽疾！
+它深度融合了 **多 Agent 牛马协同台账 (nm-skills v2.0)**，自洽收拢了 **33 个顶流高星通用 Agent Skills**，不仅打通了从「前置自愈 -> 系统认知 -> 需求施压 -> 设计门禁 -> TDD/YAGNI实施 -> 根因调试 -> 5轴代码严审 -> 安全防线 -> 自动化测试 -> 交付收尾与记忆归档」的完整工业级生命周期闭环，更彻底解决了**多 Agent 在同一工程下并发作业时抢跑同一任务、编号同号冲突与代码互撞覆盖**的行业顽疾！
 
 ---
 
@@ -54,7 +54,7 @@ auto-skills/
 │   ├── obsidian_bridge.py  # Obsidian 本地/在线双模知识库自适应同步桥梁
 │   ├── init_evolution_vault.py # 个人私有双轨进化仓库初始化向导
 │   └── tool_onboarder.py   # 新技能自动接入、元数据萃取与注册台账维护
-├── tools/                  # 内部完全自洽收拢的 32 大核心通用工具集
+├── tools/                  # 内部完全自洽收拢的 33 大核心通用工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（绝对第0步）
 │   ├── skills-manager-cli/ # 【环境管理】驱动 skm 完成跨环境软链接修复与纳管
 │   ├── codex-memory-guard/ # 【记忆守护】跨轮任务边界防护与关键记忆写入守卫
@@ -86,11 +86,12 @@ auto-skills/
 │   ├── caveman/            # 【极限紧凑】洞穴人极限 token 压缩模式（节约 65% tokens）
 │   ├── no-negative-echo/   # 【干净输出】去除纠错痕迹与负面回声，保持交付纯粹
 │   ├── incremental-implementation/ # 【增量实现】薄垂直切片：改一点/验一点/提交一点
-│   └── using-git-worktrees/ # 【物理隔离】并行 Agent 各用一个 worktree，不撞同一批文件
+│   ├── using-git-worktrees/ # 【物理隔离】并行 Agent 各用一个 worktree，不撞同一批文件
+│   └── requesting-code-review/ # 【请审查】给可验证上下文，而不是“帮我看看”
 ├── template/
 │   └── SKILL.md            # 新技能纳管骨架模板 (--add 缺 SKILL.md 时按此生成)
 └── references/
-    └── capability-map.md   # 32 大成员能力全景映射表与冲突优先级
+    └── capability-map.md   # 33 大成员能力全景映射表与冲突优先级
 ```
 
 ---
