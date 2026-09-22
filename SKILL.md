@@ -319,14 +319,17 @@ python scripts/opinion_request.py check <单号>     # 看某张单子的结论
 
 ## 9. 回归测试与自检 (Regression & Self-Check)
 
-改动本仓库后跑这两条，它们是**可执行的判据**，不是说明文字：
+改动本仓库后跑这三条，它们是**可执行的判据**，不是说明文字：
 
 ```bash
-# 1) 台账与文档一致性（12 项断言）
+# 1) 台账与文档一致性（23 项断言）
 python scripts/_test_registry.py
 
 # 2) 数据库落库容错层（12 项断言，需能连到实例 A）
 python scripts/_test_failover.py
+
+# 3) 守卫的守卫：破坏文档树必须让上面第 1 条变红（6 个用例）
+python scripts/_test_doc_tree_guards.py
 ```
 
 `_test_registry.py` 覆盖两类曾经真实发生过的缺陷，改完必须重跑：
@@ -336,5 +339,12 @@ python scripts/_test_failover.py
   症状隐蔽（技能仍在、只是描述为空）。
 - **防文档脱节**：`SKILL.md` / `README.md` / `references/capability-map.md` 里的技能计数必须等于
   `tools/` 下的实际目录数；capability-map 的矩阵行数也必须相等、序号不得重复。
+
+`_test_doc_tree_guards.py` 为什么必须存在：**一条再也拦不住人的断言，和一条通过的断言长得一模一样**。
+本项目实测过一次 —— 仓库根留下一个 `.bak` 文件，第 7 段断言因此常红，于是「破坏后确实变红了」
+不再证明任何事，负向测试悄悄变成安慰剂。所以改了文档树相关断言后，要跑第 3 条：
+它在临时副本里逐个破坏文档结构（删一个 scripts 条目 / 删整段 tools 子项 / 删整段 scripts 子项 /
+删整段 scripts 块 / 删一行矩阵），要求真断言**必须**变红，并额外要求杂散 `*.bak`、`*.swp` **不得**触发断言。
+原始文件全程不被修改。
 
 两条都是 `exit 0/1`，可直接接进任何 CI 或 pre-push 流程。
