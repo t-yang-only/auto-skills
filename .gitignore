@@ -34,3 +34,4 @@ config/gateway.token
 
 # 数据库凭据（绝不提交：本仓库有公开远端）
 config/db.password
+config/gateway.url

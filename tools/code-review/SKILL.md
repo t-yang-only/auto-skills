@@ -1,4 +1,4 @@
-﻿---
+---
 name: code-review
 description: "Comprehensive multi-axis code review: correctness, security, edge cases, YAGNI, and maintainability before merge."
 ---
