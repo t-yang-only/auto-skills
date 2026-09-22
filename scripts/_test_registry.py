@@ -207,6 +207,37 @@ def main():
                     names.append(mm.group(1))
         check("%s 工具树成员数等于台账" % fn, len(names) == n,
               "树里 %d 个 vs 台账 %d 个" % (len(names), n))
+    # ---- 9. scripts/ 目录树覆盖全部脚本 ----
+    # 2026-09-22 实测：树里只列了 13 个脚本，实际有 17 个——opinion_request.py
+    # 是用户可见功能却没进树，两个回归测试也不见踪影。
+    print("\n[9] scripts/ 目录树覆盖全部脚本")
+    scripts_dir = os.path.join(ROOT, "scripts")
+    actual_scripts = set()
+    if os.path.isdir(scripts_dir):
+        actual_scripts = {f for f in os.listdir(scripts_dir) if f.endswith(".py")}
+    for fn in ("README.md", "SKILL.md"):
+        fp = os.path.join(ROOT, fn)
+        if not os.path.isfile(fp):
+            continue
+        text = io.open(fp, encoding="utf-8").read().replace("\r\n", "\n")
+        m = re.search(r"```text\n(.*?)```", text, re.DOTALL)
+        if not m:
+            continue
+        listed, in_scripts = set(), False
+        for ln in m.group(1).split("\n"):
+            if re.match(r"^[\u251c\u2514]\u2500\u2500\s+scripts/", ln):
+                in_scripts = True
+                continue
+            if in_scripts and re.match(r"^[\u251c\u2514]\u2500\u2500\s+", ln):
+                break
+            if in_scripts:
+                mm = re.match(r"^\u2502\s*[\u251c\u2514]\u2500\u2500\s+([\w_]+\.py)", ln)
+                if mm:
+                    listed.add(mm.group(1))
+        missing = sorted(actual_scripts - listed)
+        check("%s 脚本树覆盖全部 .py" % fn, not missing,
+              "未列出: %s" % (missing or "无"))
+
     return report()
 
 

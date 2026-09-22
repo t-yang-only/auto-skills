@@ -53,7 +53,11 @@ auto-skills/
 │   ├── git_push_notify.py  # 自动化 Git 提交、推送与多渠道广播联动
 │   ├── obsidian_bridge.py  # Obsidian 本地/在线双模知识库自适应同步桥梁
 │   ├── init_evolution_vault.py # 个人私有双轨进化仓库初始化向导
-│   └── tool_onboarder.py   # 新技能自动接入、元数据萃取与注册台账维护
+│   ├── tool_onboarder.py   # 新技能自动接入、元数据萃取与注册台账维护
+│   ├── opinion_request.py  # 意见请求通道客户端（向人提问 / 取回结论）
+│   ├── sync_skill_counts.py# 文档技能计数自动同步（13 个锚点）
+│   ├── _test_registry.py   # 回归：台账 / 计数 / 占位 / 树成员一致性
+│   └── _test_failover.py   # 回归：落库容错三层（熔断 / 暂存 / 补传）
 ├── tools/                  # 内部完全自洽收拢的 33 大核心通用工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（绝对第0步）
 │   ├── skills-manager-cli/ # 【环境管理】驱动 skm 完成跨环境软链接修复与纳管
