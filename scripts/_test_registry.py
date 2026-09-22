@@ -474,6 +474,21 @@ def main():
                         _link_leak.append("%s=%s" % (_base.parent.name or str(_base), _l))
             check("链接形态下凭据不可达", not _link_leak,
                   "; ".join(_link_leak[:3]) if _link_leak else "")
+            # 分发快照不得含本地运行时产物：agent_word/ 是本机多 Agent 台账
+            # （已被 .gitignore 排除、不属仓库内容），分发出去等于把本机
+            # 任务记录与文件清单暴露给所有 harness，且各 harness 会看到
+            # 同一份"别人的台账"而误判任务归属。实测发现它被拷进过快照。
+            import wizard_setup as _ws
+            if _linked:
+                _dist = _ws.SKILL_ROOT / ".evolution" / "dist"
+                _bad_dist = []
+                for _junk in ("agent_word", "config/db.password",
+                              "config/gateway.token", "config/gateway.url",
+                              ".git", ".evolution"):
+                    if (_dist / _junk).exists():
+                        _bad_dist.append(_junk)
+                check("分发快照不含本地运行时产物", not _bad_dist,
+                      "快照里出现: %s（跑 wizard_setup.py --deploy 重建）" % _bad_dist)
     except Exception as e:
         check("部署副本与仓库同步", False, "无法导入 wizard_setup: %s" % e)
 
