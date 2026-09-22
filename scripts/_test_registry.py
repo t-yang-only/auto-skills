@@ -429,12 +429,28 @@ def main():
                 return _o
 
             _sf = _fmap(ROOT)
-            _stale, _leaked, _checked = [], [], 0
+            _stale, _leaked, _checked, _linked = [], [], 0, 0
             for _name, _base in wizard_setup.KNOWN_AGENT_PATHS:
                 _t = _base / "auto-skills"
-                if not _t.exists():
+                # 注意：不能只用 _t.exists() 判断"有没有部署"——失效的链接
+                # 会让 exists() 返回 False，于是整根被静默跳过（实测踩过：
+                # 快照被移走后六个链接全部失效，断言却报全绿）。
+                # 用 lexists 语义：路径本身在（哪怕指向的目标没了）就要检查。
+                _present = os.path.lexists(str(_t))
+                if not _present:
                     continue
                 _checked += 1
+                _is_link = _t.is_symlink() or wizard_setup._is_junction(_t)
+                # 链接形态单独判定：它与快照是同一份内容，本来就不该与真源
+                # 逐个文件相等（快照排除了凭据与 .evolution）。判据改为
+                # 「是链接 + 目标可达 + 能读到 SKILL.md + 凭据不可达」。
+                if _is_link:
+                    _linked += 1
+                    if not _t.exists():
+                        _stale.append("%s(链接失效，目标不存在)" % (_base.parent.name or str(_base)))
+                    elif not (_t / "SKILL.md").exists():
+                        _stale.append("%s(链接失效，读不到 SKILL.md)" % (_base.parent.name or str(_base)))
+                    continue
                 _tf = _fmap(_t)
                 _miss = sorted(set(_sf) - set(_tf))
                 _chg = sorted(k for k in set(_sf) & set(_tf) if _sf[k] != _tf[k])
@@ -444,10 +460,20 @@ def main():
                 if _lk:
                     _leaked.append("%s=%s" % (_base.parent.name or str(_base), _lk))
             # 一个根都没部署时不算失败（可能没装任何 harness），但必须报出来
-            check("部署副本与仓库同步（已检查 %d 个根）" % _checked, not _stale,
+            check("部署与仓库一致（%d 个根，其中 %d 个为链接）" % (_checked, _linked), not _stale,
                   "; ".join(_stale[:3]) if _stale else "")
             check("分发副本无本地凭据残留", not _leaked,
                   "; ".join(_leaked[:3]) if _leaked else "")
+            # 链接形态必须真的读不到凭据（这是选链接方案的前提）
+            _link_leak = []
+            for _name, _base in wizard_setup.KNOWN_AGENT_PATHS:
+                _t = _base / "auto-skills"
+                if os.path.lexists(str(_t)) and (_t.is_symlink() or wizard_setup._is_junction(_t)):
+                    _l = [x for x in _secret if (_t / x).exists()]
+                    if _l:
+                        _link_leak.append("%s=%s" % (_base.parent.name or str(_base), _l))
+            check("链接形态下凭据不可达", not _link_leak,
+                  "; ".join(_link_leak[:3]) if _link_leak else "")
     except Exception as e:
         check("部署副本与仓库同步", False, "无法导入 wizard_setup: %s" % e)
 
