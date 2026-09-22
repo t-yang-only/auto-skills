@@ -1,6 +1,6 @@
 # auto-skills ⚡🤖
 > **Next-Gen AI Development Workflow Orchestrator, Multi-Skill Router & Multi-Agent Coordination Hub (v3.0 Flagship)**  
-> 全能旗舰级 AI 研发与多 Agent 协同总控中枢：深度融合多 Agent 牛马协同台账 (nm-skills v2.0)，自洽收拢 27 大顶流核心技能，提供排他防撞、自适应多根寻址与 SDLC 阶段感知流水线。
+> 全能旗舰级 AI 研发与多 Agent 协同总控中枢：深度融合多 Agent 牛马协同台账 (nm-skills v2.0)，自洽收拢 30 大顶流核心技能，提供排他防撞、自适应多根寻址与 SDLC 阶段感知流水线。
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -21,11 +21,11 @@
 
 **auto-skills v3.0** 专为解决全流程治理与多 Agent 协同而生：
 - **深度融合 nm-skills 牛马协同台账**：原生搭载分布式原子任务认领 (`claim`)、租约排他锁 (`Lease with TTL`)、严格单调递增编号分配器与实时看板 (`board`)，彻底根除任务冲突；
-- **自洽收拢 28 个高星通用技能**：你只需输入任务意图，调度引擎将自动为你生成端到端的执行流水线，并严格保证各阶段的硬门禁！
+- **自洽收拢 30 个高星通用技能**：你只需输入任务意图，调度引擎将自动为你生成端到端的执行流水线，并严格保证各阶段的硬门禁！
 
 ---
 
-## 🏗️ 架构与 27 大内置成员 (Architecture & Tools)
+## 🏗️ 架构与 30 大内置成员 (Architecture & Tools)
 
 auto-skills 内部收拢所有成员，100% 自洽且支持多根自适应寻址：
 
@@ -52,7 +52,7 @@ auto-skills/
 │   ├── obsidian_bridge.py  # Obsidian 本地/在线双模知识库自适应同步桥梁
 │   ├── init_evolution_vault.py # 个人私有双轨进化仓库初始化向导
 │   └── tool_onboarder.py   # 新技能自动接入、元数据萃取与注册台账维护
-├── tools/                  # 内部收拢的 27 大核心专业工具集
+├── tools/                  # 内部收拢的 30 大核心专业工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（第0步）
 │   ├── skills-manager-cli/ # 【环境管理】驱动 skm 完成跨环境软链接修复与纳管
 │   ├── codex-memory-guard/ # 【记忆守护】跨轮任务边界防护与关键记忆写入守卫
@@ -71,6 +71,8 @@ auto-skills/
 │   ├── systematic-debugging/# 【根因调试】4步系统性根因诊断环：复现->溯源->微创修复->防退化
 │   ├── code-review/        # 【代码严审】5轴多维代码审查：正确性/安全/架构/复杂度/测试
 │   ├── verification-before-completion/# 【完成前验证】证据先于断言：未跑验证不得声称完成
+│   ├── receiving-code-review/# 【审查反馈】逐条回应 review 意见：不辩解、不打包、不同意要说理
+│   ├── diagnosing-skills/  # 【故障诊断】技能未触发/落库无数据/任务重复：查轨迹表定位断点
 │   ├── security-best-practices/ # 【安全防线】语言与框架特定安全漏洞与加固审计
 │   ├── authorized-pentest-guard/ # 【攻防守卫】合法授权渗透、漏洞PoC与防误拒技术守卫
 │   ├── playwright/         # 【端到端验证】真实浏览器自动化测试、表单录制与UI走查
@@ -82,7 +84,7 @@ auto-skills/
 │   ├── caveman/            # 【极限紧凑】洞穴人极限 token 压缩模式（节约 65% tokens）
 │   └── no-negative-echo/   # 【干净输出】去除纠错痕迹与负面回声，保持交付纯粹
 └── references/
-    └── capability-map.md   # 28 大成员能力全景映射表与冲突优先级
+    └── capability-map.md   # 30 大成员能力全景映射表与冲突优先级
 ```
 
 ---

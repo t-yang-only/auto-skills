@@ -22,7 +22,7 @@ metadata:
 
 `auto-skills` 是面向复杂软件工程、AI 自治研发与多 Agent 协同的 **端到端工作流调度、排他防撞与技能编排总控引擎**。
 
-它深度融合了 **多 Agent 牛马协同台账 (nm-skills v2.0)**，自洽收拢了 **28 个顶流高星通用 Agent Skills**，不仅打通了从「前置自愈 -> 系统认知 -> 需求施压 -> 设计门禁 -> TDD/YAGNI实施 -> 根因调试 -> 5轴代码严审 -> 安全防线 -> 自动化测试 -> 交付收尾与记忆归档」的完整工业级生命周期闭环，更彻底解决了**多 Agent 在同一工程下并发作业时抢跑同一任务、编号同号冲突与代码互撞覆盖**的行业顽疾！
+它深度融合了 **多 Agent 牛马协同台账 (nm-skills v2.0)**，自洽收拢了 **30 个顶流高星通用 Agent Skills**，不仅打通了从「前置自愈 -> 系统认知 -> 需求施压 -> 设计门禁 -> TDD/YAGNI实施 -> 根因调试 -> 5轴代码严审 -> 安全防线 -> 自动化测试 -> 交付收尾与记忆归档」的完整工业级生命周期闭环，更彻底解决了**多 Agent 在同一工程下并发作业时抢跑同一任务、编号同号冲突与代码互撞覆盖**的行业顽疾！
 
 ---
 
@@ -53,7 +53,7 @@ auto-skills/
 │   ├── obsidian_bridge.py  # Obsidian 本地/在线双模知识库自适应同步桥梁
 │   ├── init_evolution_vault.py # 个人私有双轨进化仓库初始化向导
 │   └── tool_onboarder.py   # 新技能自动接入、元数据萃取与注册台账维护
-├── tools/                  # 内部完全自洽收拢的 27 大核心通用工具集
+├── tools/                  # 内部完全自洽收拢的 30 大核心通用工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（绝对第0步）
 │   ├── skills-manager-cli/ # 【环境管理】驱动 skm 完成跨环境软链接修复与纳管
 │   ├── codex-memory-guard/ # 【记忆守护】跨轮任务边界防护与关键记忆写入守卫
@@ -72,6 +72,8 @@ auto-skills/
 │   ├── systematic-debugging/# 【根因调试】4步系统性根因诊断环：复现->溯源->微创修复->防退化
 │   ├── code-review/        # 【代码严审】5轴多维代码审查：正确性/安全/架构/复杂度/测试
 │   ├── verification-before-completion/# 【完成前验证】证据先于断言：未跑验证不得声称完成
+│   ├── receiving-code-review/# 【审查反馈】逐条回应 review 意见：不辩解、不打包、不同意要说理
+│   ├── diagnosing-skills/  # 【故障诊断】技能未触发/落库无数据/任务重复：查轨迹表定位断点
 │   ├── security-best-practices/ # 【安全防线】语言与框架特定安全漏洞与加固审计
 │   ├── authorized-pentest-guard/ # 【攻防守卫】合法授权渗透、漏洞PoC与防误拒技术守卫
 │   ├── playwright/         # 【端到端验证】真实浏览器自动化测试、表单录制与UI走查
@@ -83,7 +85,7 @@ auto-skills/
 │   ├── caveman/            # 【极限紧凑】洞穴人极限 token 压缩模式（节约 65% tokens）
 │   └── no-negative-echo/   # 【干净输出】去除纠错痕迹与负面回声，保持交付纯粹
 └── references/
-    └── capability-map.md   # 28 大成员能力全景映射表与冲突优先级
+    └── capability-map.md   # 30 大成员能力全景映射表与冲突优先级
 ```
 
 ---
@@ -166,7 +168,7 @@ python scripts/wizard_setup.py --status
 5. `clarify` (极限施压) -> `grill-me`：苏格拉底式反向质询，深挖需求边界漏洞。
 6. `design` (方案门禁) -> `brainstorming` / `markdown-viewer`：**硬性门禁**，设计未获批准严禁写代码。
 7. `implement` (TDD极简实施) -> `test-driven-development` / `ponytail` / `cli-creator` / `jupyter`：红绿测试驱动开发，YAGNI 极简编码。
-8. `verify` (根因排错与安全严审) -> `systematic-debugging` / `code-review` / `verification-before-completion` / `security` / `authorized-pentest-guard` / `playwright` / `ci`：4步根因调试、5轴严审、漏洞加固与端到端 UI 测试。
+8. `verify` (根因排错与安全严审) -> `systematic-debugging` / `code-review` / `verification-before-completion` / `receiving-code-review` / `diagnosing-skills` / `security` / `authorized-pentest-guard` / `playwright` / `ci`：4步根因调试、5轴严审、漏洞加固与端到端 UI 测试。
 9. `handoff` (交付收尾与归档) -> `closeout` / `team-handoff` / `memory-consolidate`：交付核验与记忆整理。
 
 ---
