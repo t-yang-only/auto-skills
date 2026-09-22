@@ -97,7 +97,8 @@ auto-skills/
 ├── template/
 │   └── SKILL.md            # 新技能纳管骨架模板 (--add 缺 SKILL.md 时按此生成)
 └── references/
-    └── capability-map.md   # 35 大成员能力全景映射表与冲突优先级
+    ├── capability-map.md   # 35 大成员能力全景映射表与冲突优先级
+    └── 本机运维层.md        # 两个计划任务（部署看门狗 / 每日备份）与恢复演练
 ```
 
 ---
