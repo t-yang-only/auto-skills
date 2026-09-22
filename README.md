@@ -133,7 +133,7 @@ python scripts/auto_router.py log --limit 15
   2. 是否永远默认启用 `nm-skills` 在项目目录下建立执行登记（`agent_word/`）；
   3. 多渠道推送凭据（Server酱、企业微信、飞书、钉钉等）；
   4. 是否默认启用女朋友人格模式，若启用将自动从知识库（Obsidian/在线知识库）拉取人格温情特性；
-  5. 是否建立并绑定至个人私有 Git 进化仓库（`skills-Management`）；
+  5. 是否建立并绑定至个人私有 Git 进化仓库（`<your-private-vault-repo>`）；
 - **跨 Agent 智能扫描与连接**：配置完成后自动扫描本机所有 Agent 技能目录并建立互联同步。
 
 ```bash
