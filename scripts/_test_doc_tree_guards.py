@@ -35,10 +35,15 @@ WATCHED = ["SKILL.md", "README.md", "references/capability-map.md"]
 
 
 def _run_registry_test(cwd: Path) -> tuple[int, list[str]]:
+    env = dict(os.environ)
+    # 明确告知被调用方「这跑在隔离副本里」：_test_registry.py 里有只对真实
+    # 仓库根才成立的断言（部署同步——那是机器事实，与临时副本无关），
+    # 不声明就会在噪声用例里误报，进而掩盖真正失效的守卫。
+    env["AUTOSKILLS_SANDBOX"] = "1"
     proc = subprocess.run(
         [sys.executable, REGISTRY_TEST],
         cwd=str(cwd), capture_output=True, text=True,
-        encoding="utf-8", errors="replace",
+        encoding="utf-8", errors="replace", env=env,
     )
     out = (proc.stdout or "") + (proc.stderr or "")
     fails = [ln.strip() for ln in out.splitlines() if ln.strip().startswith("FAIL:")]

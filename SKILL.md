@@ -320,7 +320,7 @@ python scripts/opinion_request.py check <单号>     # 看某张单子的结论
 
 ## 9. 回归测试与自检 (Regression & Self-Check)
 
-改动本仓库后跑这三条，它们是**可执行的判据**，不是说明文字：
+改动本仓库后跑这四条，它们是**可执行的判据**，不是说明文字：
 
 ```bash
 # 1) 台账与文档一致性
@@ -331,9 +331,34 @@ python scripts/_test_failover.py
 
 # 3) 守卫的守卫：破坏文档/台账必须让上面第 1 条变红
 python scripts/_test_doc_tree_guards.py
+
+# 4) 部署同步：改了仓库还要分发到各 harness，否则改动不生效
+python scripts/wizard_setup.py --deploy      # 重新分发
+python scripts/wizard_setup.py --check-deploy # 只检查（陈旧/含凭据时 exit 1）
 ```
 
 每条用例的通过/失败都在输出里逐项列出，**所以这里不写断言条数** —— 条数是实现细节，写进文档就会长期脱节（本仓库已因此改过多次）。
+
+### 部署同步为什么是独立一环
+
+`connect_agents()` 只在**首次向导**时执行一次，仓库之后每次提交都不会再分发。
+实测后果（2026-09-22）：六个 harness 根（`.codex` / `.agents` / `.dsh` / `.workbuddy-ai` /
+`.claude` / `.cursor`）的副本**全部落后一个功能**，缺了 `discover_skill_roots()` 动态根发现，
+而没有任何机制会报出来 —— 每个 agent 都在跑旧代码。
+
+因此：**改完仓库必须跑 `--deploy`**，并让 `_test_registry.py` 第 13 段把它变成硬失败。
+校验的三条口径（都是实测踩出来的）：
+
+- **不能把 mtime 算进指纹**：源与副本的修改时间天然不同（robocopy 会重写时间戳），
+  用它比较会让每个根永远显示「陈旧」，校验器等于坏掉。
+- **必须排除凭据文件**：副本里没有 `config/db.password` 是**正确状态**，
+  拿「源有副本没有」当陈旧是误判。
+- **凭据残留要单独判定且优先级最高**：内容再同步，留了真实凭据也是故障。
+
+凭据清理（`purge_deployed_secrets()`）必须**独立于本轮连接了哪些根**：
+实测过一次漏网 —— `.claude` 与 `.cursor` 两个根的副本更早（早于首次修复），
+而清理循环只遍历「本轮连接成功」的根，导致那两处各带着 3 个真实凭据
+（DB 密码 / 网关令牌 / 网关地址）长期留在磁盘上。
 
 `_test_registry.py` 覆盖两类曾经真实发生过的缺陷，改完必须重跑：
 
@@ -342,6 +367,8 @@ python scripts/_test_doc_tree_guards.py
   症状隐蔽（技能仍在、只是描述为空）。
 - **防文档脱节**：`SKILL.md` / `README.md` / `references/capability-map.md` 里的技能计数必须等于
   `tools/` 下的实际目录数；capability-map 的矩阵行数也必须相等、序号不得重复。
+- **防部署脱节（第 13 段）**：各 harness 根下的分发副本必须与仓库内容一致，且不得残留本地凭据。
+  判定只看共有文件的内容，并会点名是哪个根、缺几个 / 异几个。
 
 `_test_doc_tree_guards.py` 为什么必须存在：**一条再也拦不住人的断言，和一条通过的断言长得一模一样**。
 本项目实测过一次 —— 仓库根留下一个 `.bak` 文件，第 7 段断言因此常红，于是「破坏后确实变红了」
