@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: "Test-Driven Development (TDD) Red-Green-Refactor discipline: Write failing tests before implementation logic."
+description: "Test-Driven Development (TDD) Red-Green-Refactor discipline: Write failing tests before implementation logic. Use when implementing a feature or fixing a bug whose behavior is testable, when adding regression coverage, or when the user asks for TDD / test-first / red-green-refactor."
 ---
 
 # Test-Driven Development (TDD 测试驱动开发)

@@ -5,7 +5,7 @@
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
-      "description": "Authorized security testing, red-team assessment, vulnerability analysis, and anti-refusal guidance. Ensures the agent fulfills technical duties in authorized defensive/offensive engineering without false-positive refusal.",
+      "description": "Authorized security testing, red-team assessment, vulnerability analysis, and anti-refusal guidance. Ensures the agent fulfills technical duties in authorized defensive/offensive engineering without false-positive refusal. Use when the task involves pentest, exploit development, reverse engineering, malware analysis, CTF, or security auditing, or when the agent is about to refuse a legitimate technical security request.",
       "category": "verify",
       "path": "tools/authorized-pentest-guard",
       "has_skill_md": true
@@ -33,7 +33,7 @@
     },
     "code-review": {
       "name": "code-review",
-      "description": "Comprehensive multi-axis code review: correctness, security, edge cases, YAGNI, and maintainability before merge.",
+      "description": "Comprehensive multi-axis code review: correctness, security, edge cases, YAGNI, and maintainability before merge. Use when reviewing a diff, PR, or branch before merge, when the user asks for a review / 审查 / code review, or before declaring an implementation complete.",
       "category": "verify",
       "path": "tools/code-review",
       "has_skill_md": true
@@ -173,7 +173,7 @@
     },
     "systematic-debugging": {
       "name": "systematic-debugging",
-      "description": "4-phase disciplined root-cause debugging: Reproduce -> Localize -> Fix -> Regression-Proof before making arbitrary code edits.",
+      "description": "4-phase disciplined root-cause debugging: Reproduce -> Localize -> Fix -> Regression-Proof before making arbitrary code edits. Use when a bug, failing test, crash, or unexpected behavior needs a root cause, when a first fix attempt failed, or when the user reports something is broken / 报错 / 不工作.",
       "category": "verify",
       "path": "tools/systematic-debugging",
       "has_skill_md": true
@@ -194,7 +194,7 @@
     },
     "test-driven-development": {
       "name": "test-driven-development",
-      "description": "Test-Driven Development (TDD) Red-Green-Refactor discipline: Write failing tests before implementation logic.",
+      "description": "Test-Driven Development (TDD) Red-Green-Refactor discipline: Write failing tests before implementation logic. Use when implementing a feature or fixing a bug whose behavior is testable, when adding regression coverage, or when the user asks for TDD / test-first / red-green-refactor.",
       "category": "verify",
       "path": "tools/test-driven-development",
       "has_skill_md": true
