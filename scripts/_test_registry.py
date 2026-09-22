@@ -13,7 +13,10 @@ import io
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -260,6 +263,68 @@ def main():
         missing = sorted(actual_scripts - listed)
         check("%s 脚本树覆盖全部 .py" % fn, not missing,
               "未列出: %s" % (missing or "无"))
+
+    # ---- 10. 技能多根寻址：固定根优先 + 动态发现去重 ----
+    # 只靠硬编码根会漏掉用户真正在用的 harness（实测本机 20+ 个根里有 17 个盲区），
+    # 但「发现了根」和「解析优先级还对」是两件事，必须都断言。
+    print("\n[10] 技能多根寻址（固定根优先 + 动态发现去重）")
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import auto_router as _ar
+
+        fixed = [os.path.normcase(os.path.abspath(str(r))) for r in _ar.CANDIDATE_ROOTS]
+        discovered = [os.path.normcase(os.path.abspath(str(r))) for r in _ar.discover_skill_roots()]
+        allroots = [os.path.normcase(os.path.abspath(str(r))) for r in _ar.all_skill_roots()]
+
+        # 隔离 HOME：里面放一个「只在非固定根里存在」的技能，用来证明动态发现真的生效。
+        _fake_home = tempfile.mkdtemp(prefix="as-fakehome-")
+        _probe_skill = os.path.join(_fake_home, ".fakeharness", "skills", "fake-harness-skill")
+        os.makedirs(_probe_skill, exist_ok=True)
+        with io.open(os.path.join(_probe_skill, "SKILL.md"), "w", encoding="utf-8", newline="\n") as _f:
+            _f.write("---\nname: fake-harness-skill\ndescription: probe\n---\n")
+
+        dup_all = sorted({r for r in allroots if allroots.count(r) > 1})
+        check("全部技能根无重复", not dup_all,
+              "重复: %s" % (", ".join(dup_all[:3]) if dup_all else "无"))
+        check("动态根不与固定根重叠", not (set(discovered) & set(fixed)),
+              "重叠: %s" % (", ".join(sorted(set(discovered) & set(fixed))[:3]) or "无"))
+        check("固定根排在动态根之前",
+              allroots[:len(fixed)] == fixed,
+              "前 %d 个不是固定根原序" % len(fixed))
+        check("动态发现确实有产出", bool(discovered),
+              "发现 %d 个（若本机确实只装一个 harness 可忽略）" % len(discovered))
+
+        # 内置 tools/ 必须赢过任何外部同名副本
+        if os.path.isdir(_ar.INTERNAL_TOOLS):
+            sample = sorted(d for d in os.listdir(_ar.INTERNAL_TOOLS)
+                            if os.path.isdir(os.path.join(_ar.INTERNAL_TOOLS, d)))
+            if sample:
+                _p, _origin = _ar.resolve_member_path(sample[0])
+                check("内置 tools 解析优先于外部根", _origin == "internal_tools",
+                      "%s -> %s" % (sample[0], _origin))
+        check("未知技能名解析为 missing",
+              _ar.resolve_member_path("definitely-not-a-skill-xyz")[0] is None)
+
+        # 动态发现必须真的能解析到技能：在隔离 HOME 里造一个只存在于
+        # 非固定根（.fakeharness/skills）的技能，要求它被解析到。
+        # 只在固定根上断言的话，「动态发现」整个功能可以坏掉而测试全绿。
+        _probe = subprocess.run(
+            [sys.executable, "-c",
+             "import sys, os; sys.path.insert(0, os.path.join(os.environ['AS_ROOT'], 'scripts'));"
+             "import auto_router as a;"
+             "p, o = a.resolve_member_path('fake-harness-skill');"
+             "print(o); print(p)"],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
+            env={**os.environ, "AS_ROOT": ROOT, "HOME": _fake_home, "USERPROFILE": _fake_home},
+        )
+        _lines = [l for l in (_probe.stdout or "").splitlines() if l.strip()]
+        _ok = len(_lines) >= 2 and _lines[0].strip() == "external_hub" and "fakeharness" in _lines[1]
+        check("动态发现的根可被解析到", _ok,
+              "stdout=%s stderr=%s" % ((_probe.stdout or "").strip()[:60],
+                                       (_probe.stderr or "").strip()[:60]))
+        shutil.rmtree(_fake_home, ignore_errors=True)
+    except Exception as e:
+        check("技能多根寻址可自检", False, "导入/执行失败: %s" % e)
 
     return report()
 
