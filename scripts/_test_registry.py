@@ -305,6 +305,19 @@ def main():
         check("未知技能名解析为 missing",
               _ar.resolve_member_path("definitely-not-a-skill-xyz")[0] is None)
 
+        # 解析结果必须落在声明的某个根下面 —— 防止「解析到了，但那个路径
+        # 根本不在根列表里」（例如被缓存住、或拼出了越界路径）。
+        _stray = []
+        for _name in ("ponytail", "nm-skills", "test-driven-development"):
+            _p, _o = _ar.resolve_member_path(_name)
+            if _p is None:
+                continue
+            _pp = os.path.normcase(os.path.abspath(str(_p)))
+            if not any(_pp.startswith(_r + os.sep) for _r in allroots):
+                _stray.append("%s -> %s" % (_name, _p))
+        check("解析结果都落在已声明的技能根内", not _stray,
+              "; ".join(_stray[:2]) if _stray else "无越界")
+
         # 动态发现必须真的能解析到技能：在隔离 HOME 里造一个只存在于
         # 非固定根（.fakeharness/skills）的技能，要求它被解析到。
         # 只在固定根上断言的话，「动态发现」整个功能可以坏掉而测试全绿。
