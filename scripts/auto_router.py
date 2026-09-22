@@ -579,8 +579,10 @@ def _trace_summary(plan: Dict[str, Any]) -> str:
         tier = plan.get('tier') or plan.get('task_tier')
         return (f"tier={tier}; focus={plan.get('primary_focus')}; "
                 f"steps={len(steps)}; pipeline=[{names}]")
-    except Exception:
-        return ""
+    except Exception as e:
+        # 不抛（摘要是次要信息，不该阻断路由），但要留痕说明它没生成——
+        # 静默返回空串会让"轨迹摘要是空的"看起来像正常情况。
+        return f"<摘要生成失败: {type(e).__name__}>"
 
 
 def cmd_trace(argv: List[str]) -> int:
