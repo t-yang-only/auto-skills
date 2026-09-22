@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 37,
+  "tools_count": 39,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -64,6 +64,13 @@
       "description": "Diagnose why a session or skill misbehaved: a skill that should have fired but did not, an agent that ignored its plan, repeated work, or burned far more tokens than expected. Reads the session trail and the auto-skills trace tables, reports with line-level evidence, and can package a scrubbed bundle. Use when asked to figure out what went wrong, why a skill did not trigger, why nothing got written to the database, or when a session feels off. 触发场景：会话/技能表现异常、该触发的技能没触发、落库没数据、任务重复、token 异常超支、被要求排查「刚才那次为什么不对」时。",
       "category": "verify",
       "path": "tools/diagnosing-skills",
+      "has_skill_md": true
+    },
+    "domain-modeling": {
+      "name": "domain-modeling",
+      "description": "建立并磨锐项目的领域模型——术语表与架构决策记录。当讨论代码里的术语、发现同一个词被用作两个意思、需要写或改 CONTEXT.md，或要记一条 ADR 时使用；也适用于接手陌生代码库后统一叫法。触发词：术语表、领域模型、CONTEXT.md、ADR、架构决策记录、名词对不上。",
+      "category": "design",
+      "path": "tools/domain-modeling",
       "has_skill_md": true
     },
     "find-skills": {
@@ -162,6 +169,13 @@
       "description": "Ask for a review that can actually find something: hand over verifiable context instead of a summary, self-review the diff first, and keep the change small enough to read. Use before requesting review from a human or another agent, when opening a pull request, when a change is large or touches shared code, or when the user asks for review / 审查 / PR 请人看.",
       "category": "verify",
       "path": "tools/requesting-code-review",
+      "has_skill_md": true
+    },
+    "research": {
+      "name": "research",
+      "description": "对一个问题做一手来源调研，把结论沉淀成仓库里的 Markdown 文件。当用户要\"查一下 X 怎么做\"、需要官方文档或 API 事实、或想把跑腿的阅读工作交出去时使用；也适用于动工前先把外部事实钉死。触发词：调研、查文档、查 API、研究一下、一手来源。",
+      "category": "understand",
+      "path": "tools/research",
       "has_skill_md": true
     },
     "resolving-merge-conflicts": {
