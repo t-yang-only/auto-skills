@@ -737,6 +737,17 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "trace":
         return cmd_trace(sys.argv[2:])
 
+    # 8. 显式路由子命令 (route)：剥离子命令名后再交给 build_smart_plan。
+    #
+    # 不加这一段会有一个隐蔽的**档位误判**：`route` 会落进兜底的
+    # `" ".join(args.query)`，于是 `auto_router.py route 更新 README 的安装说明`
+    # 传给判定函数的其实是「route 更新 README 的安装说明」——多了 6 个字符，
+    # 让原本 15 字（<=18 阈值，应走 FAST_PATH）的任务变成 21 字，落到
+    # 「默认走向完整流程」规则，把省 Token 的极速模式误升成完整 SDLC。
+    # 实测确认：函数直调判 FAST_PATH，CLI 判 FULL_SDLC。
+    if len(sys.argv) > 1 and sys.argv[1] == "route":
+        sys.argv.pop(1)
+
     ap = argparse.ArgumentParser(description="auto-skills 智能化自适应工作流调度引擎 (v3.0 旗舰双轨版，深度融合 nm-skills 协同排他锁、MySQL 自动落库与私有 Git 同步)")
     ap.add_argument("query", nargs="*", help="任务描述文本，或协同/数据库子命令 (claim/done/board/renew/whoami/setup/connect-agents/db/experience/sync-private/install-skill)")
     ap.add_argument("--mode", choices=["auto", "fast", "full"], default="auto", help="路由模式：auto 自动评估复杂度，fast 极速省Token，full 完整SDLC")
