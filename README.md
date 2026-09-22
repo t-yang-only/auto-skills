@@ -1,11 +1,11 @@
 # auto-skills ⚡🤖
 > **Next-Gen AI Development Workflow Orchestrator, Multi-Skill Router & Multi-Agent Coordination Hub (v3.0 Flagship)**  
-> 全能旗舰级 AI 研发与多 Agent 协同总控中枢：深度融合多 Agent 牛马协同台账 (nm-skills v2.0)，自洽收拢 33 大顶流核心技能，提供排他防撞、自适应多根寻址与 SDLC 阶段感知流水线。
+> 全能旗舰级 AI 研发与多 Agent 协同总控中枢：深度融合多 Agent 牛马协同台账 (nm-skills v2.0)，自洽收拢 34 大顶流核心技能，提供排他防撞、自适应多根寻址与 SDLC 阶段感知流水线。
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Agent Skills Ready](https://img.shields.io/badge/Agent%20Skills-Standard-green.svg)](https://agentskills.io/)
-[![Zero Missing Members](https://img.shields.io/badge/Members-33%20Self--Contained-brightgreen.svg)]()
+[![Zero Missing Members](https://img.shields.io/badge/Members-34%20Self--Contained-brightgreen.svg)]()
 [![Multi-Agent Mutual Exclusion](https://img.shields.io/badge/Coordination-Atomic%20Lease%20Lock-brightgreen.svg)]()
 [![Full SDLC Pipeline](https://img.shields.io/badge/SDLC-Preflight%E2%86%92Design%E2%86%92TDD%E2%86%92Review%E2%86%92Closeout-blue.svg)]()
 
@@ -21,11 +21,11 @@
 
 **auto-skills v3.0** 专为解决全流程治理与多 Agent 协同而生：
 - **深度融合 nm-skills 牛马协同台账**：原生搭载分布式原子任务认领 (`claim`)、租约排他锁 (`Lease with TTL`)、严格单调递增编号分配器与实时看板 (`board`)，彻底根除任务冲突；
-- **自洽收拢 33 个高星通用技能**：你只需输入任务意图，调度引擎将自动为你生成端到端的执行流水线，并严格保证各阶段的硬门禁！
+- **自洽收拢 34 个高星通用技能**：你只需输入任务意图，调度引擎将自动为你生成端到端的执行流水线，并严格保证各阶段的硬门禁！
 
 ---
 
-## 🏗️ 架构与 33 大内置成员 (Architecture & Tools)
+## 🏗️ 架构与 34 大内置成员 (Architecture & Tools)
 
 auto-skills 内部收拢所有成员，100% 自洽且支持多根自适应寻址：
 
@@ -57,7 +57,7 @@ auto-skills/
 │   ├── sync_skill_counts.py# 文档技能计数自动同步（13 个锚点）
 │   ├── _test_registry.py   # 回归：台账 / 计数 / 占位 / 树成员一致性
 │   └── _test_failover.py   # 回归：落库容错三层（熔断 / 暂存 / 补传）
-├── tools/                  # 内部收拢的 33 大核心专业工具集
+├── tools/                  # 内部收拢的 34 大核心专业工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（第0步）
 │   ├── skills-manager-cli/ # 【环境管理】驱动 skm 完成跨环境软链接修复与纳管
 │   ├── codex-memory-guard/ # 【记忆守护】跨轮任务边界防护与关键记忆写入守卫
@@ -90,11 +90,12 @@ auto-skills/
 │   ├── no-negative-echo/   # 【干净输出】去除纠错痕迹与负面回声，保持交付纯粹
 │   ├── incremental-implementation/ # 【增量实现】薄垂直切片：改一点/验一点/提交一点
 │   ├── using-git-worktrees/ # 【物理隔离】并行 Agent 各用一个 worktree，不撞同一批文件
-│   └── requesting-code-review/ # 【请审查】给可验证上下文，而不是“帮我看看”
+│   ├── requesting-code-review/ # 【请审查】给可验证上下文，而不是“帮我看看”
+│   └── writing-plans/       # 【计划】把方向拆成可验证可提交的步骤
 ├── template/
 │   └── SKILL.md            # 新技能纳管骨架模板 (--add 缺 SKILL.md 时按此生成)
 └── references/
-    └── capability-map.md   # 33 大成员能力全景映射表与冲突优先级
+    └── capability-map.md   # 34 大成员能力全景映射表与冲突优先级
 ```
 
 ---
