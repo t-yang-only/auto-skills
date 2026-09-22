@@ -158,7 +158,30 @@ def main():
     # 两者都是本地状态、文档有意不列；.git 是版本库元数据。
     print("\n[7] 文档目录树与实际顶层结构一致")
     ALLOW_OMIT = {".evolution", ".git", "agent_word"}
-    actual = {d for d in os.listdir(ROOT) if d not in ALLOW_OMIT}
+    # 备份/临时产物不是交付物：不写进文档树是正常的，不能因此报「树里缺」。
+    # 实测教训：一旦有人在仓库根留了 .bak-* 或 .orig，本段会在任何真实破坏之前
+    # 就变红，把「破坏被抓住」误报成「备份文件没写进文档」——负向测试因此失效。
+    # 只排除「备份/临时后缀」与「未在树中声明的隐藏文件」两类；
+    # .gitignore / .gitattributes 这类会写进树的隐藏文件必须保留在 actual 里，
+    # 否则会反过来报「树里多出」。
+    NOISE = re.compile(r"\.(bak|orig|tmp|temp|old|new|rej|patch|log)([-.].*)?$", re.I)
+    actual = {d for d in os.listdir(ROOT)
+              if d not in ALLOW_OMIT and not NOISE.search(d)}
+    # 隐藏文件只在「树里明确列了它」时才参与比对（.gitattributes/.gitignore 属交付物，
+    # 而编辑器残留的 .foo.swp 之类不该逼着文档去补条目）。
+    listed_hidden = set()
+    for _fn in ("README.md", "SKILL.md"):
+        _p = os.path.join(ROOT, _fn)
+        if not os.path.isfile(_p):
+            continue
+        _t = io.open(_p, encoding="utf-8").read().replace("\r\n", "\n")
+        _m = re.search(r"```text\n(.*?)```", _t, re.DOTALL)
+        if _m:
+            for _ln in _m.group(1).split("\n"):
+                _mm = re.match(r"^[├└]──\s+([^\s/]+)", _ln)
+                if _mm and _mm.group(1).startswith("."):
+                    listed_hidden.add(_mm.group(1))
+    actual = {d for d in actual if not d.startswith(".")} | (listed_hidden & set(os.listdir(ROOT)))
     for fn in ("README.md", "SKILL.md"):
         p = os.path.join(ROOT, fn)
         if not os.path.isfile(p):
