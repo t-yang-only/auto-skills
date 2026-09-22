@@ -241,6 +241,11 @@ def build_dist() -> Path:
         ignore=shutil.ignore_patterns(
             ".git", ".evolution", "__pycache__", "*.pyc",
             "db.password", "gateway.token", "gateway.url",
+            # agent_word/ 是**本地运行时台账**（多 Agent 任务认领与工作日志，
+            # 已被 .gitignore 排除、不属仓库内容）。把它分发出去会把本机的
+            # 任务记录与文件清单暴露给所有 harness，且各 harness 会看到
+            # 同一份"别人的台账"而误判任务归属。实测发现它被一起拷进了快照。
+            "agent_word",
         ),
     )
     return dist
@@ -579,16 +584,23 @@ def main():
         sys.exit(1 if res["errors"] else 0)
 
     if args.deploy:
-        # 双形态：已经是链接形态的根走"重建快照"，仍是副本的根走"重新拷贝"。
-        # 这样同一个 --deploy 对两种形态都成立，不需要用户记两套命令。
-        linked_roots = [r for r in check_deployment(verbose=False) if r["status"] == "linked"]
+        # 双形态：链接形态的根走"重建快照"，副本形态的根走"重新拷贝"。
+        # 注意：**两种不能同时跑**——链接指向的就是快照目录，若再对它执行
+        # robocopy /MIR，会把真源内容（含 .gitignore 掉的 agent_word/ 等
+        # 运行时产物）镜像进快照，等于把刚排除的东西又倒回去（实测踩过：
+        # 快照里出现了 agent_word/，正是这一步造成的）。
+        rows0 = check_deployment(verbose=False)
+        linked_roots = [r for r in rows0 if r["status"] == "linked"]
+        copy_roots = [r for r in rows0 if r["status"] in ("stale", "ok", "leaked")]
         if linked_roots and args.mode != "copy":
             dist = build_dist()
             print(f"[*] 已重建分发快照（{len(linked_roots)} 个根通过链接共用这一份）")
             print(f"    {dist}")
-        if args.mode != "link":
+        if copy_roots and args.mode != "link":
             out = deploy_agents()
             print(f"\n[OK] 已重新分发到 {len(out['connected'])} 个副本根；清除凭据 {len(out['purged'])} 个")
+        elif not copy_roots:
+            print("[i] 全部根都是链接形态，无需副本同步")
         rows = check_deployment()
         bad = [r for r in rows if r["status"] in ("stale", "leaked")]
         sys.exit(1 if bad else 0)
