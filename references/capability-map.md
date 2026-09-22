@@ -1,12 +1,12 @@
-# auto-skills 31 大核心成员能力映射矩阵 (Capability Map v2.6)
+# auto-skills 32 大核心成员能力映射矩阵 (Capability Map v2.6)
 
-> auto-skills 采用母 Skill 架构，内部 `tools/` 完整收拢 31 个顶尖高星通用成员技能。
+> auto-skills 采用母 Skill 架构，内部 `tools/` 完整收拢 32 个顶尖高星通用成员技能。
 > 具备 6 级多根自适应寻址机制，兼顾本地独立自洽与系统级跨环境调用。
 > 本表的权威数据源是 `tools/registry.json`（由 `scripts/tool_onboarder.py --scan` 生成）。
 
 ---
 
-## 1. 31 大成员能力全景矩阵
+## 1. 32 大成员能力全景矩阵
 
 | 序号 | 成员 Skill | 生命周期阶段 | 核心定位与职责 |
 |---|---|---|---|
@@ -41,6 +41,7 @@
 | 29 | `caveman` | `persona` | 显式口令 `/caveman` 激活洞穴人极限压缩模式（降低 65% token） |
 | 30 | `no-negative-echo` | `persona` | 消除此地无银三百两式的纠错痕迹与多余解释，保持干净交付 |
 | 31 | `incremental-implementation` | `implement` | **增量实现**：薄垂直切片（改一点/验一点/提交一点），禁止大爆炸式改动 |
+| 32 | `using-git-worktrees` | `implement` | **物理隔离**：并行 Agent 各用一个 worktree，与 nm-skills 认领锁互补 |
 
 ---
 
@@ -50,7 +51,7 @@ Pre-flight -> Manage -> Acquire -> Understand -> Clarify -> Design (Gate) -> Imp
 
 1. **绝对前置**：`using-superpowers` 永远作为执行序列的第 0 步，不可跳过。
 2. **硬性门禁**：在创造性或重构任务中，`brainstorming` 拥有绝对否决权——未获用户明确批准，绝不开启实施阶段。
-3. **实施准则**：优先执行 `test-driven-development` 确认失败测试，再交由 `ponytail` 以最小充分方式通过测试。
+3. **实施准则**：优先执行 `test-driven-development` 确认失败测试，再交由 `ponytail` 以最小充分方式通过测试；跨多文件的改动按 `incremental-implementation` 切成薄垂直切片，并行作业时按 `using-git-worktrees` 隔离工作树。
 4. **质量防线**：任何代码提交前，先经由 `systematic-debugging` 排除潜在隐患，再通过 `code-review` 与 `security-best-practices` 完成安全与质量闭环。
 5. **完成纪律**：声称任何「完成 / 修好 / 通过」之前，必须走 `verification-before-completion` 的验证闸门（跑命令、读输出、留证据）。
 6. **反馈纪律**：收到审查意见时按 `receiving-code-review` 逐条分类回应；会话异常时用 `diagnosing-skills` 查轨迹表定位断点。
