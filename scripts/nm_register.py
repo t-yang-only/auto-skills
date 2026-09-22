@@ -470,8 +470,9 @@ def complete_task_atomic(
                 task_name = curr.get("task_name", "")
                 client = curr.get("client", "CODE")
                 lock_file.unlink()  # 任务完成，解除互斥排他锁
-            except Exception:
-                pass
+            except Exception as _e:
+                # 解锁失败不能默默吞掉：锁文件没删成功，这个任务在别人看来还是「进行中」。
+                _db_note("unlock", _e)
 
         if not holder_id:
             holder_id = f"NM-{client}-DONE"
