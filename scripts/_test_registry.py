@@ -294,6 +294,35 @@ def main():
         check("%s 引用树覆盖 references/ 全部文档" % fn, not missing,
               "未列出: %s" % (missing or "无"))
 
+    # ---- 9c. config/ 与 template/ 树覆盖全部受跟踪文件 ----
+    # 2026-09-22 实测：config/db.password.example 是受跟踪文件（新用户 clone 后
+    # 必须看到它才知道要建 db.password），但两处树都没列；而 config/ 下真正该
+    # 隐身的 db.password / gateway.token / gateway.url 是 ignored 的、不该进文档。
+    # 所以判据是「受跟踪文件 ⊆ 树」，用 git ls-files 而不是 listdir。
+    print("\n[9c] config/ 与 template/ 树覆盖全部受跟踪文件")
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "config", "template"],
+            cwd=ROOT, capture_output=True, text=True, timeout=20,
+        ).stdout
+        tracked_files = [ln.strip() for ln in tracked.replace("\r\n", "\n").split("\n") if ln.strip()]
+    except Exception as e:
+        tracked_files = []
+        check("git ls-files 可用", False, str(e))
+    if tracked_files:
+        for fn in ("README.md", "SKILL.md"):
+            fp = os.path.join(ROOT, fn)
+            if not os.path.isfile(fp):
+                continue
+            text = io.open(fp, encoding="utf-8").read().replace("\r\n", "\n")
+            m = re.search(r"```text\n(.*?)```", text, re.DOTALL)
+            if not m:
+                continue
+            tree = m.group(1)
+            missing = [p for p in tracked_files if os.path.basename(p) not in tree]
+            check("%s 树列出 config/ 与 template/ 全部受跟踪文件" % fn, not missing,
+                  "未列出: %s" % (missing or "无"))
+
     # ---- 10. 技能多根寻址：固定根优先 + 动态发现去重 ----
     # 只靠硬编码根会漏掉用户真正在用的 harness（实测本机 20+ 个根里有 17 个盲区），
     # 但「发现了根」和「解析优先级还对」是两件事，必须都断言。
