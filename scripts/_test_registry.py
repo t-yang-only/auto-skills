@@ -323,6 +323,41 @@ def main():
             check("%s 树列出 config/ 与 template/ 全部受跟踪文件" % fn, not missing,
                   "未列出: %s" % (missing or "无"))
 
+    # ---- 9d. 配置范本必须覆盖实际配置的全部键 ----
+    # 2026-09-22 实测：config.example.yaml 只有 49 个键，而实际配置有 76 个——
+    # database.failover 全套 10 个、database.streams 六个开关、agent_gateway 六个，
+    # 用户照范本根本配不出容错层与网关。范本是给用户看的唯一入口，脱节即功能不可达。
+    print("\n[9d] 配置范本覆盖实际配置的全部键")
+    try:
+        import yaml as _yaml
+    except ImportError:
+        check("配置范本键覆盖（跳过：无 pyyaml）", True, "")
+        _yaml = None
+    if _yaml is not None:
+        def _flat(d, pre=""):
+            out = set()
+            for k, v in (d or {}).items():
+                kp = "%s%s" % (pre, k)
+                out.add(kp)
+                if isinstance(v, dict):
+                    out |= _flat(v, kp + ".")
+            return out
+        ex_p = os.path.join(ROOT, "config", "config.example.yaml")
+        ov_p = os.path.join(ROOT, ".evolution", "config.yaml")
+        if os.path.isfile(ex_p) and os.path.isfile(ov_p):
+            try:
+                with io.open(ex_p, encoding="utf-8") as f:
+                    _ek = _flat(_yaml.safe_load(f))
+                with io.open(ov_p, encoding="utf-8") as f:
+                    _ok = _flat(_yaml.safe_load(f))
+                _gap = sorted(_ok - _ek)
+                check("config.example.yaml 覆盖实际配置全部键", not _gap,
+                      "未文档化: %s" % (_gap if _gap else "无"))
+            except Exception as _e:
+                check("配置范本键覆盖", False, "解析失败: %s" % _e)
+        else:
+            check("配置范本键覆盖（跳过：配置缺失）", True, "")
+
     # ---- 10. 技能多根寻址：固定根优先 + 动态发现去重 ----
     # 只靠硬编码根会漏掉用户真正在用的 harness（实测本机 20+ 个根里有 17 个盲区），
     # 但「发现了根」和「解析优先级还对」是两件事，必须都断言。
