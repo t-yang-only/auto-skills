@@ -7,14 +7,62 @@ is_configured: false
 
 database:
   enabled: null
+  # type 三选一：mysql / sqlite / disabled。
+  #   mysql    —— 需要 host/port/dbname/user + 密码（见下方密码三选一）
+  #   sqlite   —— 本地单文件，路径写 sqlite_path；无需任何服务端
+  #   disabled —— 完全关掉落库（连 get_db_connection 都会拒绝，不会偷偷写 sqlite）
   type: "mysql"
   host: ""
   port: 3306
   dbname: "auto_skills"
   user: ""
   password: ""
+  # 密码三级解析，优先级 password_env > password_file > password。
+  # 推荐 password_file：把真值放在一个已被 .gitignore 的文件里（如 config/db.password），
+  # 这里只写文件名。范本刻意留空——真实值绝不能进受版本控制的文件。
+  password_env: ""
+  password_file: ""
+  # type=sqlite 时生效；mysql 下忽略
+  sqlite_path: ""
+
+  # 分项开关：默认全部开启。未列出的项按开启处理（向后兼容）。
+  # 关掉某一项只影响那一条流，其余照常落库。
+  streams:
+    task_claim: true            # nm_tasks —— 任务认领
+    task_done: true             # nm_work_logs —— 任务完成
+    tool_trace: true            # tool_execution_traces —— 工具链轨迹
+    router_audit: true          # router_audit_logs —— 路由审计
+    skill_registry: true        # skill_registry —— 技能台账
+    academic_references: true   # academic_references —— 学术参考
+
   retention_days: 30
   auto_cleanup_expired_traces: true
+
+  # 容错层：数据库连不上时的自动预案（三层 = 熔断器 + 本地暂存 + 自动补传）
+  # 状态全部落盘在 .evolution/ 下（每次调用都是新进程，内存态无效）。
+  failover:
+    enabled: true
+    # 熔断是必需项不是可选项：库不可达时单次落库要干等 8s TCP 超时，
+    # 连续失败到阈值即打开熔断，此后直接快速失败（实测 8.11s → 0.03s）。
+    breaker_threshold: 3
+    breaker_cooldown_seconds: 120
+    spool_enabled: true
+    spool_max_records: 2000
+    spool_max_age_days: 7
+    replay_batch: 50
+    replay_interval_seconds: 60
+    max_attempts: 5
+    # 熔断首次打开时是否推送通知（复用 notifications.serverchan_sendkey）
+    notify_on_breaker: false
+
+# Agent 网关（HK4H8G 上的 /opt/agent-gateway）：多机节点注册、任务下发、
+# 意见请求通道、知识库读写。不用的话整段 enabled: false 即可。
+agent_gateway:
+  enabled: false
+  url: ""                       # 如 https://your-gateway.example.com
+  token_file: "config/gateway.token"   # 令牌不放配置里，只放 0600 文件的路径
+  timeout_seconds: 30
+  default_urgency: "normal"     # 建意见请求单时的默认紧急度 low/normal/high
 
 auto_update:
   auto_download_public_update: null
