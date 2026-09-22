@@ -51,6 +51,29 @@ CUSTOM_SKILLS_DIR = EVOLUTION_DIR / "custom_skills"
 CUSTOM_REGISTRY_FILE = CUSTOM_SKILLS_DIR / "registry.json"
 
 
+SKILL_TEMPLATE = Path(__file__).resolve().parent.parent / "template" / "SKILL.md"
+
+
+def _write_skill_skeleton(skill_md_path: Path, name: str, source: Path, scope_desc: str) -> None:
+    """按 template/SKILL.md 生成待完善骨架。
+
+    绝不写入 "Auto-onboarded skill <name>" 这类看似完成、实则无信息的占位描述——
+    description 是 agent 判断「何时加载本技能」的唯一依据，占位描述等于让技能不可被发现。
+    """
+    if SKILL_TEMPLATE.exists():
+        body = SKILL_TEMPLATE.read_text(encoding="utf-8")
+        body = (body.replace("{{NAME}}", name)
+                    .replace("{{SOURCE}}", str(source))
+                    .replace("{{SCOPE}}", scope_desc))
+    else:
+        body = (
+            "---\nname: %s\n"
+            "description: >-\n  TODO（必填）：说明本技能做什么、何时使用。当前为自动纳管占位。\n"
+            "---\n\n# %s\n\n> 自动纳管于 %s，正文待完善。\n" % (name, name, scope_desc)
+        )
+    skill_md_path.write_text(body, encoding="utf-8")
+
+
 def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
     """
     解析 SKILL.md 中的 YAML frontmatter
@@ -183,8 +206,8 @@ def add_external_tool(
     # 检查 SKILL.md
     skill_md = target_dir / "SKILL.md"
     if not skill_md.exists():
-        print(f"[!] 检测到缺失 SKILL.md，自动生成标准契约模板...")
-        skill_md.write_text(f"""---\nname: {name}\ndescription: Auto-onboarded skill {name}\n---\n\n# {name}\n\nAuto-onboarded skill in {scope_desc}.\n""", encoding="utf-8")
+        print(f"[!] 检测到缺失 SKILL.md，按 template/SKILL.md 生成待完善骨架...")
+        _write_skill_skeleton(skill_md, name, src, scope_desc)
 
     # 刷新台账
     scan_and_refresh_all()

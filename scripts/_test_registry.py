@@ -67,6 +67,13 @@ def main():
     empty = [k for k, v in tools.items() if not v.get("description") or v["description"] == "无描述"]
     check("无 description 为空的技能", not empty, "异常: %s" % (", ".join(empty) if empty else "无"))
 
+    # 占位描述守卫：description 是 agent 判断「何时加载」的唯一依据，
+    # 形如 "Auto-onboarded skill x" 的占位等于技能不可被发现，必须拦在库外。
+    placeholder = [k for k, v in tools.items()
+                   if re.search(r"Auto-onboarded skill|^TODO|自动纳管占位|^目录 ", v.get("description", ""))]
+    check("无占位/待完善 description", not placeholder,
+          "占位: %s" % (", ".join(placeholder) if placeholder else "无"))
+
     bom_files = []
     for d in dirs:
         md = os.path.join(TOOLS, d, "SKILL.md")
@@ -74,6 +81,21 @@ def main():
             bom_files.append(d + "/SKILL.md")
     check("无带 UTF-8 BOM 的 SKILL.md", not bom_files,
           "带 BOM: %s" % (", ".join(bom_files) if bom_files else "无"))
+
+    # ---- 3b. 私有区占位守卫（与公共区是两份独立台账）----
+    print("\n[3b] 私有区 description 占位守卫")
+    cust_reg = os.path.join(ROOT, ".evolution", "custom_skills", "registry.json")
+    if os.path.isfile(cust_reg):
+        try:
+            ctools = json.load(io.open(cust_reg, encoding="utf-8")).get("tools", {}) or {}
+            cph = [k for k, v in ctools.items()
+                   if re.search(r"Auto-onboarded skill|^TODO|自动纳管占位|^目录 ", (v or {}).get("description", ""))]
+            check("私有区无占位 description（%d 条）" % len(ctools), not cph,
+                  "占位: %s" % (", ".join(cph) if cph else "无"))
+        except Exception as e:
+            check("私有区 registry 可解析", False, str(e))
+    else:
+        check("私有区 registry 不存在（跳过）", True, cust_reg)
 
     # ---- 4. 每个技能都有 SKILL.md ----
     print("\n[4] SKILL.md 齐备")
