@@ -12,6 +12,7 @@
 import io
 import json
 import os
+import pathlib
 import re
 import shutil
 import subprocess
@@ -338,6 +339,27 @@ def main():
         shutil.rmtree(_fake_home, ignore_errors=True)
     except Exception as e:
         check("技能多根寻址可自检", False, "导入/执行失败: %s" % e)
+
+    # ---- 11. 台账 description 不得与 SKILL.md 原文脱节 ----
+    # registry.json 是 agent 挑技能时的唯一依据；在 SKILL.md 里改了 description
+    # 却忘了重扫，台账就会静默过期（挑技能的人看到的是旧触发条件）。
+    # 必须复用 tool_onboarder 自己的解析器 —— 自制正则会把 YAML 的块折叠标记
+    # （">" / "|"）当成内容差异，实测误报 7/35。
+    try:
+        import tool_onboarder as _to
+        _drift = []
+        for _name, _info in reg["tools"].items():
+            _f = pathlib.Path(ROOT) / _info["path"] / "SKILL.md"
+            if not _f.exists():
+                continue
+            _live = " ".join(str(((_to.parse_skill_metadata(_f) or {}).get("description") or "")).split())
+            _stored = " ".join(str(_info.get("description") or "").split())
+            if _live and _live != _stored:
+                _drift.append("%s: 台账=%s / 实际=%s" % (_name, _stored[:30], _live[:30]))
+        check("台账 description 与 SKILL.md 一致", not _drift,
+              "脱节 %d 个（跑 tool_onboarder.py --scan 重扫）: %s" % (len(_drift), "; ".join(_drift[:3])))
+    except ImportError as e:
+        check("台账 description 与 SKILL.md 一致", False, "无法导入 tool_onboarder: %s" % e)
 
     return report()
 
