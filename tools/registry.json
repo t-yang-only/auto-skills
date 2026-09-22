@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 41,
+  "tools_count": 42,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -190,6 +190,13 @@
       "description": "解决进行中的 git merge / rebase 冲突。当 `git status` 显示 \"You have unmerged paths\"、rebase 停在某一步、或 cherry-pick / pull 报冲突时使用；也适用于把长期分支合回主干前的预演。触发词：合并冲突、rebase 冲突、merge conflict、冲突解决、unmerged paths。",
       "category": "verify",
       "path": "tools/resolving-merge-conflicts",
+      "has_skill_md": true
+    },
+    "retro": {
+      "name": "retro",
+      "description": "Conduct a retrospective on a coding session to improve the agent's environment. Use when a session went badly or took too long, after finishing a significant piece of work, when the same mistake keeps recurring, or when the user asks for a retro / 复盘 / 回顾这次会话.",
+      "category": "verify",
+      "path": "tools/retro",
       "has_skill_md": true
     },
     "security-best-practices": {
