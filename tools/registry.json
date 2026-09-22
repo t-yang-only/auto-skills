@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 31,
+  "tools_count": 32,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -204,6 +204,13 @@
       "description": "Test-Driven Development (TDD) Red-Green-Refactor discipline: Write failing tests before implementation logic. Use when implementing a feature or fixing a bug whose behavior is testable, when adding regression coverage, or when the user asks for TDD / test-first / red-green-refactor.",
       "category": "verify",
       "path": "tools/test-driven-development",
+      "has_skill_md": true
+    },
+    "using-git-worktrees": {
+      "name": "using-git-worktrees",
+      "description": "Physical isolation for parallel agent work: one git worktree per independent task so two agents never edit the same files at the same time. Use when more than one agent or session works in the same repository, when a long-running change must not block other work, when comparing two implementations side by side, or when the user asks for worktree / 工作树 / 隔离开发.",
+      "category": "general",
+      "path": "tools/using-git-worktrees",
       "has_skill_md": true
     },
     "using-superpowers": {
