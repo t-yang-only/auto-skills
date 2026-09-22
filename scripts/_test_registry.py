@@ -897,6 +897,23 @@ def main():
     except Exception as _e:
         check("矩阵 category 与 registry 一致", False, "异常: %s" % _e)
 
+    # [14] 新技能骨架必须含完成判据
+    # 每个步骤都要以一个完成判据结束 —— 模糊的边界会招致 premature completion
+    # （前置步骤还没真正完成就收工）。骨架是唯一能保证"未来每个新技能都有
+    # 判据"的位置，所以这条断言挂在 template/ 上，而不是逐个技能去要求。
+    try:
+        _tpl = (pathlib.Path(ROOT) / "template" / "SKILL.md").read_text(encoding="utf-8")
+        _has_crit = "## 完成判据" in _tpl
+        check("新技能骨架含「完成判据」章节", _has_crit,
+              "已含该章节" if _has_crit
+              else "缺失：template/SKILL.md 里没有 ## 完成判据 —— 新技能会默认没有终点判据")
+        _neg = re.search(r"明确禁止的事项|禁止做的事项", _tpl)
+        check("新技能骨架不用纯禁止式表述", not _neg,
+              "骨架里出现纯禁止式提示（%s）—— 靠禁止引导会把被禁行为拖进上下文"
+              % (_neg.group(0) if _neg else "") if _neg else "未出现纯禁止式提示")
+    except Exception as _e:
+        check("新技能骨架含「完成判据」章节", False, "异常: %s" % _e)
+
     return report()
 
 

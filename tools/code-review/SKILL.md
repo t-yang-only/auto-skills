@@ -19,3 +19,11 @@ description: "Comprehensive multi-axis code review: correctness, security, edge 
 - **HIGH**：边界情况未处理、潜在性能倒退，必须修复后方可发布；
 - **MEDIUM**：代码异味、命名模糊、注释过时，建议优化；
 - **NIT**：微小风格建议或空格微调，不阻断主流程。
+
+## 完成判据
+
+- 五个维度逐个过了一遍，不是只看 diff 里最显眼的那几行
+- 每个发现都带**位置 + 定级**（BLOCKER / HIGH / MEDIUM / NIT），没有悬空的"我觉得"
+- BLOCKER 与 HIGH 已修复，或明确记录为阻断合并的理由
+- 给出的是可执行的修改方向，不是"这里有点问题"
+- 审查范围与请求范围一致 —— 顺带发现的无关问题单独记，不混进这次结论
