@@ -51,7 +51,7 @@ CUSTOM_SKILLS_DIR = EVOLUTION_DIR / "custom_skills"
 JOURNAL_DIR = EVOLUTION_DIR / "journal"
 
 DEFAULT_CANDIDATE_PATHS = [
-    Path("D:/ObsidianVault"),
+    Path.home() / "ObsidianVault",   # 通用家目录变体，不绑盘符
     Path.home() / "Documents" / "Obsidian Vault",
     Path.home() / "Obsidian",
     Path.home() / "Documents" / "ObsidianVault"
