@@ -182,6 +182,31 @@ def main():
         check("%s 目录树无虚构条目" % fn, not extra,
               "树里多出: %s" % (", ".join(extra) if extra else "无"))
 
+
+    # ---- 8. tools/ 目录树成员数等于台账技能数 ----
+    # tools/ 段逐条列出全部成员；新增技能只改台账不改树，读者会以为项目里没有它。
+    print("\n[8] tools/ 目录树成员数与台账一致")
+    for fn in ("README.md", "SKILL.md"):
+        fp = os.path.join(ROOT, fn)
+        if not os.path.isfile(fp):
+            continue
+        text = io.open(fp, encoding="utf-8").read().replace("\r\n", "\n")
+        m = re.search(r"```text\n(.*?)```", text, re.DOTALL)
+        if not m:
+            continue
+        names, in_tools = [], False
+        for ln in m.group(1).split("\n"):
+            if re.match(r"^[\u251c\u2514]\u2500\u2500\s+tools/", ln):
+                in_tools = True
+                continue
+            if in_tools and re.match(r"^[\u251c\u2514]\u2500\u2500\s+", ln):
+                break
+            if in_tools:
+                mm = re.match(r"^\u2502\s*[\u251c\u2514]\u2500\u2500\s+([^\s/]+)/", ln)
+                if mm:
+                    names.append(mm.group(1))
+        check("%s 工具树成员数等于台账" % fn, len(names) == n,
+              "树里 %d 个 vs 台账 %d 个" % (len(names), n))
     return report()
 
 
