@@ -13,7 +13,8 @@ description: >
   over-engineering, bloat, boilerplate, or unnecessary dependencies. Do NOT
   use for non-coding requests (general knowledge, prose, translation,
   summaries, recipes).
-argument-hint: "[lite|full|ultra]"
+metadata:
+  argument-hint: "[lite|full|ultra]"
 license: MIT
 ---
 

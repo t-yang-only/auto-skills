@@ -1,16 +1,15 @@
 ---
 name: markdown-viewer
 description: "Create rich diagrams, data visualizations, technical architecture views, and editorial content cards directly in Markdown using the Markdown Viewer Agent Skills pack. Use for Mermaid-like diagram requests, PlantUML architecture diagrams, Vega charts, JSON Canvas maps, infographics, UML, cloud/network/security/data/IoT diagrams, and polished Markdown documentation visuals."
-version: 1.0.0
-author: Ekko
 license: MIT
-platforms: [linux, macos, windows]
 metadata:
+  version: 1.0.0
+  author: Ekko
+  platforms: [linux, macos, windows]
+  prerequisites: [node, npx]
   hermes:
     source: markdown-viewer/skills
     tags: [markdown-viewer, diagrams, visualization, plantuml, vega, infographic, documentation]
-prerequisites:
-  commands: [node, npx]
 ---
 
 # Markdown Viewer

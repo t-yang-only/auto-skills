@@ -11,6 +11,7 @@
 """
 import io
 import json
+import glob
 import os
 import pathlib
 import re
@@ -728,6 +729,52 @@ def main():
                   "行数 %s → %s" % (_before_t, _after_t))
     except Exception as e:
         check("路由留痕写入验证", False, "无法导入 db_sync: %s" % e)
+
+    print("\n[11] frontmatter 符合官方 Agent Skills 规范")
+    # 依据 https://agentskills.io/specification
+    # name: <=64 字符，小写字母/数字/连字符，不以连字符首尾；description: <=1024 字符
+    # 非标准字段必须收进 metadata（或以 x- 前缀作为显式扩展）
+    try:
+        import yaml as _yaml
+    except ImportError:
+        _yaml = None
+    _STD_FM = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
+    _bad_yaml, _bad_name, _mismatch, _long_desc, _nonstd = [], [], [], [], []
+    for _p in sorted(glob.glob(os.path.join(ROOT, "tools", "*", "SKILL.md"))):
+        _skill = os.path.basename(os.path.dirname(_p))
+        _txt = open(_p, encoding="utf-8-sig").read()
+        _m = re.match(r"^\ufeff?---\s*\r?\n(.*?)\r?\n---", _txt, re.DOTALL)
+        if not _m:
+            _bad_yaml.append(_skill)
+            continue
+        if _yaml is None:
+            continue
+        try:
+            _d = _yaml.safe_load(_m.group(1)) or {}
+        except Exception:
+            _bad_yaml.append(_skill)
+            continue
+        _nm = str(_d.get("name", ""))
+        _ds = str(_d.get("description", ""))
+        if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", _nm) or len(_nm) > 64:
+            _bad_name.append(_skill)
+        if _nm != _skill:
+            _mismatch.append(_skill)
+        if len(_ds) > 1024:
+            _long_desc.append(_skill)
+        _ns = [k for k in _d.keys() if k not in _STD_FM and not str(k).startswith("x-")]
+        if _ns:
+            _nonstd.append("%s(%s)" % (_skill, ",".join(_ns)))
+    check("frontmatter 可被 YAML 解析", not _bad_yaml,
+          ("失败: %s" % _bad_yaml) if _bad_yaml else "全部可解析")
+    check("name 符合官方格式（小写/数字/连字符，<=64）", not _bad_name,
+          ("违规: %s" % _bad_name) if _bad_name else "")
+    check("name 与目录名一致", not _mismatch,
+          ("不一致: %s" % _mismatch) if _mismatch else "")
+    check("description <=1024 字符", not _long_desc,
+          ("超限: %s" % _long_desc) if _long_desc else "")
+    check("无游离非标准键（须进 metadata 或 x- 前缀）", not _nonstd,
+          ("发现: %s" % _nonstd) if _nonstd else "")
 
     return report()
 
