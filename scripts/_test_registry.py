@@ -141,6 +141,34 @@ def main():
         dup = sorted({s for s in seqs if seqs.count(s) > 1})
         check("序号无重复", not dup, "重复: %s" % (", ".join(dup) if dup else "无"))
 
+    # ---- 7. 文档目录树与实际顶层结构一致 ----
+    # 目录树是读者理解项目布局的唯一入口；新增目录没写进树会长期不被发现。
+    # .evolution 是私有进化区，文档有意不列；.git 是版本库元数据。
+    print("\n[7] 文档目录树与实际顶层结构一致")
+    ALLOW_OMIT = {".evolution", ".git"}
+    actual = {d for d in os.listdir(ROOT) if d not in ALLOW_OMIT}
+    for fn in ("README.md", "SKILL.md"):
+        p = os.path.join(ROOT, fn)
+        if not os.path.isfile(p):
+            check("%s 存在" % fn, False)
+            continue
+        text = io.open(p, encoding="utf-8").read()
+        m = re.search(r"```text\n(.*?)```", text, re.DOTALL)
+        if not m:
+            check("%s 有目录树代码块" % fn, False)
+            continue
+        listed = set()
+        for ln in m.group(1).split("\n"):
+            mm = re.match(r"^[├└]──\s+([^\s/]+)/?", ln)
+            if mm:
+                listed.add(mm.group(1))
+        missing = sorted(actual - listed)
+        extra = sorted(listed - actual)
+        check("%s 目录树覆盖全部顶层" % fn, not missing,
+              "树里缺: %s" % (", ".join(missing) if missing else "无"))
+        check("%s 目录树无虚构条目" % fn, not extra,
+              "树里多出: %s" % (", ".join(extra) if extra else "无"))
+
     return report()
 
 

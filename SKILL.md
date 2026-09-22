@@ -84,6 +84,8 @@ auto-skills/
 │   ├── talk-like-girlfriend/# 【表达人格】口令门控女友人格（仅限 /gf 显式触发）
 │   ├── caveman/            # 【极限紧凑】洞穴人极限 token 压缩模式（节约 65% tokens）
 │   └── no-negative-echo/   # 【干净输出】去除纠错痕迹与负面回声，保持交付纯粹
+├── template/
+│   └── SKILL.md            # 新技能纳管骨架模板 (--add 缺 SKILL.md 时按此生成)
 └── references/
     └── capability-map.md   # 30 大成员能力全景映射表与冲突优先级
 ```
