@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 33,
+  "tools_count": 34,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -232,6 +232,13 @@
       "description": "Evidence before claims: run the real verification command and READ its output BEFORE saying done / fixed / passing / working, before committing, and before reporting to a user. Use whenever about to express satisfaction or completion, when tempted to write 'should work' / 'probably fine' / 'seems fixed', or when trusting another agent's success report. 触发场景：即将说「完成了/修好了/测试通过/应该没问题」之前、提交或推送之前、向用户汇报之前。",
       "category": "verify",
       "path": "tools/verification-before-completion",
+      "has_skill_md": true
+    },
+    "writing-plans": {
+      "name": "writing-plans",
+      "description": "Turn an agreed direction into a step-by-step plan someone else can execute: each step is one verifiable, committable slice with its own acceptance and rollback point. Use before starting multi-step work, when handing work to another agent or a future session, when the user asks for a plan / 计划 / 方案 / 拆任务, or when a task is big enough that starting immediately would mean improvising.",
+      "category": "general",
+      "path": "tools/writing-plans",
       "has_skill_md": true
     }
   }
