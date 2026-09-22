@@ -589,6 +589,53 @@ def main():
     except Exception as e:
         check("路由入口一致性", False, "无法导入 auto_router: %s" % e)
 
+    # ---- [15] 路由留痕：route 必须把审计与轨迹写进库 ----
+    # 存在的理由：route 每次调用会做两次落库（router_audit_logs 与
+    # tool_execution_traces），这是「工具链调用被自动留痕」的实际落点。
+    # 但在此之前没有任何断言覆盖它——后续若为省时复用连接或调整调用点，
+    # 改坏了不会有人发现。先有覆盖，再谈优化。
+    # 断言方式：读改动前的行数 → 跑一次 route → 读改动后的行数，必须增加。
+    try:
+        import db_sync as _ds
+        _probe = "T-ROUTE-TRACE-PROBE"
+        def _count(sql):
+            try:
+                _c = _ds.get_db_connection()
+                try:
+                    _cur = _c.cursor()
+                    _cur.execute(sql)
+                    _n = _cur.fetchone()[0]
+                    _cur.close()
+                    return _n
+                finally:
+                    _c.close()
+            except Exception:
+                return None
+
+        _before_a = _count("SELECT COUNT(*) FROM router_audit_logs")
+        _before_t = _count("SELECT COUNT(*) FROM tool_execution_traces")
+        if _before_a is None or _before_t is None:
+            # 连不上库时不算失败（可能是离线环境），但要显式说明跳过了
+            check("路由留痕写入验证（数据库不可达，已跳过）", True, "")
+        else:
+            import subprocess as _sp2
+            _env2 = dict(os.environ)
+            _env2["PYTHONIOENCODING"] = "utf-8"
+            _router2 = str(pathlib.Path(ROOT) / "scripts" / "auto_router.py")
+            _sp2.run([sys.executable, _router2, "route", _probe],
+                     capture_output=True, text=True, encoding="utf-8",
+                     errors="replace", env=_env2, timeout=180)
+            _after_a = _count("SELECT COUNT(*) FROM router_audit_logs")
+            _after_t = _count("SELECT COUNT(*) FROM tool_execution_traces")
+            check("route 写入 router_audit_logs",
+                  _after_a is not None and _after_a > _before_a,
+                  "行数 %s → %s" % (_before_a, _after_a))
+            check("route 写入 tool_execution_traces",
+                  _after_t is not None and _after_t > _before_t,
+                  "行数 %s → %s" % (_before_t, _after_t))
+    except Exception as e:
+        check("路由留痕写入验证", False, "无法导入 db_sync: %s" % e)
+
     return report()
 
 

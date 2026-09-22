@@ -533,18 +533,44 @@ def record_tool_trace_db(
         return False
 
 
-def cleanup_expired_traces(days: int = 30) -> int:
-    """
-    30 天滚动清理过期工具链调用轨迹，防止数据库膨胀
+def cleanup_expired_traces(days: int = 30, force: bool = False) -> int:
+    """30 天滚动清理过期工具链调用轨迹，防止数据库膨胀。
+
+    按时间节流：默认**每小时最多跑一次**（force=True 可强制）。
+    为什么要节流：本函数原先每次 record_tool_trace_db 都无条件调用一次，
+    而它自己会建立一条数据库连接并执行 DELETE。于是一次 route 调用要建
+    三条连接（清理 + 审计 + 轨迹），实测单次连接约 300ms，白白多花
+    ~300ms；而"清理过期行"是维护动作，按小时做一次完全够用。
+    节流状态写在 .evolution/db_cleanup.json（每次调用都是新进程，内存态无效）。
     """
     if not config_manager.get_value("database.enabled", True):
         return 0
+
+    _now = time.time()
+    if not force:
+        try:
+            _st = SKILL_ROOT / ".evolution" / "db_cleanup.json"
+            if _st.exists():
+                _last = float(json.loads(_st.read_text(encoding="utf-8")).get("last_run", 0))
+                if _now - _last < 3600:
+                    return 0
+        except Exception:
+            pass  # 状态文件坏了就照常清理，不影响主流程
+
     try:
         conn = get_db_connection()
         sql = "DELETE FROM `tool_execution_traces` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL %s DAY);"
         with conn.cursor() as cur:
             affected = cur.execute(sql, (days,))
         conn.close()
+        # 清理成功才写节流时间戳
+        try:
+            _st = SKILL_ROOT / ".evolution" / "db_cleanup.json"
+            _st.parent.mkdir(parents=True, exist_ok=True)
+            _st.write_text(json.dumps({"last_run": _now, "last_affected": affected}),
+                           encoding="utf-8")
+        except Exception:
+            pass
         if affected > 0:
             print(f"[*] 【30天滚动清理】已成功清理 {affected} 条超过 {days} 天的历史工具调用轨迹。")
         return affected
