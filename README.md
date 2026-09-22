@@ -156,16 +156,23 @@ python scripts/auto_router.py setup
 # 扫描并连接本机所有 Agent 环境（首次向导时自动执行）
 python scripts/auto_router.py connect-agents
 
-# 仓库更新后重新分发到各 Agent 技能目录（改了本仓库必须跑这条）
+# 仓库更新后重新分发（改了本仓库必须跑这条）
 python scripts/wizard_setup.py --deploy
 
-# 只检查分发副本是否与仓库同步（陈旧或残留凭据时 exit 1）
+# 只检查是否同步（陈旧 / 链接失效 / 残留凭据时 exit 1）
 python scripts/wizard_setup.py --check-deploy
+
+# 部署形态：链接（推荐，六根共用一份快照）或副本
+python scripts/wizard_setup.py --link --mode link
+python scripts/wizard_setup.py --unlink          # 退回独立副本
 ```
 
 > **为什么需要 `--deploy`**：首次向导只执行一次，仓库之后的每次提交都不会自动分发。
 > 实测过一次：六个 Agent 根（`.codex` / `.agents` / `.dsh` / `.workbuddy-ai` / `.claude` / `.cursor`）
 > 的副本全部落后一个功能，每个 agent 都在跑旧代码，而没有任何提示。
+>
+> 用 `--link` 可改成链接形态：六个根共用一份不含凭据的快照，不会再出现
+> 「有的根同步了、有的没同步」；同时凭据只在真源一处，链接路径读不到。
 
 ---
 

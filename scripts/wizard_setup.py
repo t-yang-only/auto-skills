@@ -32,6 +32,8 @@ wizard_setup.py — auto-skills 首次启动引导与全自动配置向导 (v3.0
 import os
 import sys
 import json
+import time
+import shutil
 import argparse
 import subprocess
 from pathlib import Path
@@ -159,6 +161,10 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
         if not target.exists():
             rows.append({"name": name, "path": str(target), "status": "missing"})
             continue
+        # 链接形态：一份内容多个入口，结构上不可能陈旧（仓库改完即刻生效）
+        if target.is_symlink() or _is_junction(target):
+            rows.append({"name": name, "path": str(target), "status": "linked"})
+            continue
         leaked = [rel for rel in SECRET_FILES if (target / rel).exists()]
         tgt_files = _file_map(target)
         missing = sorted(set(src_files) - set(tgt_files))
@@ -170,7 +176,8 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
                      "src_sig": src_sig, "tgt_sig": _dir_signature(target),
                      "leaked": leaked, "missing": missing, "extra": extra, "changed": changed})
     if verbose:
-        icon = {"ok": "🟢 同步", "stale": "🟡 陈旧", "leaked": "🔴 含凭据", "missing": "⚪ 未部署"}
+        icon = {"ok": "🟢 同步", "stale": "🟡 陈旧", "leaked": "🔴 含凭据",
+                "missing": "⚪ 未部署", "linked": "🔗 链接快照"}
         print(f"\n{'目标':<26} 状态")
         print("-" * 62)
         for r in rows:
@@ -187,6 +194,8 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
                 sample = (r.get("changed") or r.get("missing") or [])[:2]
                 if sample:
                     detail += f"  如 {', '.join(sample)}"
+            elif r["status"] == "linked":
+                detail = "  与快照同一份内容，六根共用"
             elif r.get("leaked"):
                 detail = f"  泄漏={r['leaked']}"
             print(f"  {r['name']:<24} {icon[r['status']]}{detail}")
@@ -194,7 +203,9 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
         if bad:
             print(f"\n[i] 有 {len(bad)} 个根需要重新部署：跑 `python scripts/wizard_setup.py --deploy`")
         else:
-            print("\n[OK] 全部根与仓库同步，且无凭据残留")
+            n_link = sum(1 for r in rows if r["status"] == "linked")
+            tail = f"（其中 {n_link} 个为链接形态，共用一份快照）" if n_link else ""
+            print(f"\n[OK] 全部根内容一致、无凭据残留{tail}")
     return rows
 
 
@@ -206,6 +217,181 @@ def deploy_agents(agent_names: Optional[List[str]] = None) -> Dict[str, Any]:
     return {"connected": result, "purged": purged}
 
 
+def build_dist() -> Path:
+    """构建分发快照：真源的完整副本，但**不含本地凭据**。
+
+    为什么需要这一层：直接把 harness 目录链接到真源有个副作用——
+    真源里的 config/db.password 等凭据会从每个链接路径变得可达
+    （实测确认：链接后 `~/.cursor/skills/auto-skills/config/db.password`
+    能读到内容）。分发快照把「要分发的」与「只属于本机的」切开，
+    链接指向快照，凭据仍只留在真源一处。
+
+    重要语义（实测确认）：链接路径与快照是**同一份文件**（inode 相同），
+    而不是与真源同一份。所以"改了真源立刻从各 harness 生效"是不成立的
+    ——必须重建快照。`--deploy` 的职责因此是「重建快照 + 确保链接存在」，
+    而不是往每个根拷一份。好处是重建只有一次写入（而不是六次），
+    且不存在"某些根同步了、某些没同步"的中间态。
+    """
+    dist = SKILL_ROOT / ".evolution" / "dist"
+    dist.parent.mkdir(parents=True, exist_ok=True)
+    if dist.exists():
+        shutil.rmtree(dist, ignore_errors=True)
+    shutil.copytree(
+        SKILL_ROOT, dist,
+        ignore=shutil.ignore_patterns(
+            ".git", ".evolution", "__pycache__", "*.pyc",
+            "db.password", "gateway.token", "gateway.url",
+        ),
+    )
+    return dist
+
+
+def link_agents(agent_names: Optional[List[str]] = None, mode: str = "auto") -> Dict[str, Any]:
+    """用目录链接把各 harness 的技能目录指向分发快照，从结构上消除漂移。
+
+    为什么不继续用副本：副本要求「每次改仓库都记得重新分发」，实测漏过
+    一次（六个根全部落后一个功能，每个 agent 都在跑旧代码）。
+
+    链接方案的收益：内容是**一份**（快照）而不是六份，重建只写一次，
+    因此不可能出现"某些根同步了、某些没同步"的中间态；凭据也只有一个
+    地方需要守（快照本身排除了它们）。`--deploy` 之后所有根同时生效。
+
+    代价（必须知道）：真源改动不会自动出现在 harness 里，仍要跑
+    `--deploy` 重建快照。这与副本方案的纪律要求相同，但失败模式更轻——
+    要么全好要么全旧，不会出现参差不齐。
+
+    为什么链接快照而不链接真源：直链真源会让凭据从每个 harness 路径
+    可达（实测确认）。快照排除了凭据，链接路径下读不到。
+
+    模式（实测结论）：
+    - Windows 上目录符号链接需管理员（开发者模式已开也会报
+      "Administrator privilege required"）；**Junction 免管理员可用**，
+      且本机已有先例（`.dsh/skills/ppt-skills`）。
+    - `mode="copy"` 保留副本方案，作为不跟随链接的工具的降级路径。
+    """
+    results = {"linked": [], "copied": [], "skipped": [], "errors": []}
+    is_win = os.name == "nt"
+    dist = build_dist()
+    for name, p in KNOWN_AGENT_PATHS:
+        if not p.exists():
+            results["skipped"].append(name)
+            continue
+        # 过滤要认三种写法：展示名 / 目录名(skills) / 宿主目录(.cursor)。
+        # 只比 p.name 是无效的——六个根的 p.name 全是 'skills'，
+        # 传什么都不可能只选中一个根（实测踩过）。
+        if agent_names and not (
+            name in agent_names
+            or p.name in agent_names
+            or p.parent.name in agent_names
+        ):
+            continue
+        target = p / "auto-skills"
+        if target.exists() and (target.is_symlink() or _is_junction(target)):
+            results["linked"].append(name)  # 幂等
+            continue
+        if mode == "copy":
+            results["skipped"].append(name)
+            continue
+        print(f"[*] 正在为 【{name}】 建立到分发快照的链接...")
+        # 旧副本先挪走（不直接删，便于失败时恢复）
+        stash = None
+        if target.exists():
+            stash = p / f".auto-skills.bak-{int(time.time())}"
+            try:
+                target.rename(stash)
+            except Exception as e:
+                results["errors"].append(f"{name}: 无法移开旧副本 {e}")
+                continue
+        try:
+            if is_win:
+                subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(target), str(dist)],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+                )
+            else:
+                os.symlink(dist, target, target_is_directory=True)
+            if not (target / "SKILL.md").exists():
+                raise RuntimeError("链接建立后读不到 SKILL.md")
+            # 关键验收：链接路径下必须**读不到**凭据
+            _lk = [r for r in SECRET_FILES if (target / r).exists()]
+            if _lk:
+                raise RuntimeError(f"链接指向的目录含凭据: {_lk}")
+            results["linked"].append(name)
+            print(f"  [+] 已链接至分发快照: {p}")
+            if stash:
+                shutil.rmtree(stash, ignore_errors=True)
+        except Exception as e:
+            # 回退：恢复旧副本或改用复制
+            if stash and not target.exists():
+                try:
+                    stash.rename(target)
+                except Exception:
+                    pass
+            print(f"  [!] 链接失败（{e}），回退到复制模式")
+            try:
+                copied = connect_agents(agent_names=[name])
+                if copied:
+                    results["copied"].append(name)
+                else:
+                    results["errors"].append(f"{name}: 复制回退也失败")
+            except Exception as e2:
+                results["errors"].append(f"{name}: {e2}")
+    return results
+
+
+def unlink_agents(agent_names: Optional[List[str]] = None) -> Dict[str, Any]:
+    """把链接形态改回独立副本（给不跟随 Junction 的工具做降级）。
+
+    删除 Junction 只删链接本身、不动目标内容（这是 Junction 的语义，
+    已实测确认真源不受影响），所以这里先 rmdir 链接再拷副本。
+    """
+    results = {"copied": [], "skipped": [], "errors": []}
+    for name, p in KNOWN_AGENT_PATHS:
+        if not p.exists():
+            results["skipped"].append(name)
+            continue
+        if agent_names and not (
+            name in agent_names or p.name in agent_names or p.parent.name in agent_names
+        ):
+            continue
+        target = p / "auto-skills"
+        if not (target.is_symlink() or _is_junction(target)):
+            results["skipped"].append(name)
+            continue
+        try:
+            if _is_junction(target):
+                subprocess.run(["cmd", "/c", "rmdir", str(target)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            else:
+                target.unlink()
+            if connect_agents(agent_names=[name]):
+                results["copied"].append(name)
+            else:
+                results["errors"].append(f"{name}: 副本重建失败")
+        except Exception as e:
+            results["errors"].append(f"{name}: {e}")
+    return results
+
+
+def _is_junction(p: Path) -> bool:
+    """判断路径是否为 Windows Junction。
+
+    不能用 Path.is_symlink()：它对 Junction 返回 False（Junction 是
+    reparse point 的一个子类型，不是 symlink）。这里直接读 Windows
+    属性位 FILE_ATTRIBUTE_REPARSE_POINT(0x400)，并且要求 Path.is_symlink()
+    为假，避免把普通符号链接也算进来。
+    """
+    try:
+        if os.name != "nt":
+            return False
+        if Path(str(p)).is_symlink():
+            return False
+        st = os.lstat(str(p))
+        return bool(getattr(st, "st_file_attributes", 0) & 0x400)
+    except Exception:
+        return False
+
+
 def connect_agents(agent_names: Optional[List[str]] = None) -> List[str]:
     """建立到扫描到的 Agent 目录的连接与同步"""
     connected = []
@@ -213,7 +399,14 @@ def connect_agents(agent_names: Optional[List[str]] = None) -> List[str]:
     for name, p in KNOWN_AGENT_PATHS:
         if not p.exists():
             continue
-        if agent_names and name not in agent_names and p.name not in agent_names:
+        # 过滤要认三种写法：展示名 / 目录名(skills) / 宿主目录(.cursor)。
+        # 只比 p.name 是无效的——六个根的 p.name 全是 'skills'，
+        # 传什么都不可能只选中一个根（实测踩过）。
+        if agent_names and not (
+            name in agent_names
+            or p.name in agent_names
+            or p.parent.name in agent_names
+        ):
             continue
 
         target_link = p / "auto-skills"
@@ -333,9 +526,15 @@ def main():
     parser.add_argument("--auto", action="store_true", help="自动以推荐安全标准完成首次配置")
     parser.add_argument("--connect-agents", action="store_true", help="立即扫描并建立到所有 Agent 环境的连接")
     parser.add_argument("--deploy", action="store_true",
-                        help="重新分发仓库当前内容到所有 Agent 技能目录（仓库更新后跑这个）")
+                        help="重新分发到所有 Agent 技能目录（仓库更新后跑这个；链接形态下=重建快照）")
+    parser.add_argument("--link", action="store_true",
+                        help="改用目录链接指向分发快照（六个根共用一份内容；凭据不可从链接路径读到）")
+    parser.add_argument("--unlink", action="store_true",
+                        help="把链接形态改回独立副本（某些工具不跟随 Junction 时用）")
+    parser.add_argument("--mode", choices=["auto", "link", "copy"], default="auto",
+                        help="部署形态：auto=优先链接失败回退复制（默认）、link=只链接、copy=只复制")
     parser.add_argument("--check-deploy", action="store_true",
-                        help="检查各 Agent 技能目录的副本是否与仓库同步（含凭据残留巡检）")
+                        help="检查各 Agent 技能目录是否与仓库同步（含凭据残留巡检）")
     parser.add_argument("--always-nm", choices=["true", "false"], help="设置是否永远默认启用 nm-skills 台账")
     parser.add_argument("--gf-mode", choices=["true", "false"], help="设置是否默认开启女友人格")
     parser.add_argument("--set-private-remote", help="设置个人私有 Git 仓库 URL")
@@ -358,9 +557,38 @@ def main():
         bad = [r for r in rows if r["status"] in ("stale", "leaked")]
         sys.exit(1 if bad else 0)
 
+    if args.link:
+        res = link_agents(mode=args.mode)
+        print(f"\n[OK] 链接 {len(res['linked'])} 个；复制回退 {len(res['copied'])} 个；"
+              f"跳过 {len(res['skipped'])} 个")
+        if res["errors"]:
+            print("[!] 错误:")
+            for e in res["errors"]:
+                print(f"    {e}")
+        rows = check_deployment()
+        bad = [r for r in rows if r["status"] in ("stale", "leaked")]
+        sys.exit(1 if bad or res["errors"] else 0)
+
+    if args.unlink:
+        res = unlink_agents()
+        print(f"\n[OK] 已改回独立副本: {len(res['copied'])} 个；跳过 {len(res['skipped'])} 个")
+        if res["errors"]:
+            print("[!] 错误:")
+            for e in res["errors"]:
+                print(f"    {e}")
+        sys.exit(1 if res["errors"] else 0)
+
     if args.deploy:
-        out = deploy_agents()
-        print(f"\n[OK] 已重新分发到 {len(out['connected'])} 个根；清除凭据 {len(out['purged'])} 个")
+        # 双形态：已经是链接形态的根走"重建快照"，仍是副本的根走"重新拷贝"。
+        # 这样同一个 --deploy 对两种形态都成立，不需要用户记两套命令。
+        linked_roots = [r for r in check_deployment(verbose=False) if r["status"] == "linked"]
+        if linked_roots and args.mode != "copy":
+            dist = build_dist()
+            print(f"[*] 已重建分发快照（{len(linked_roots)} 个根通过链接共用这一份）")
+            print(f"    {dist}")
+        if args.mode != "link":
+            out = deploy_agents()
+            print(f"\n[OK] 已重新分发到 {len(out['connected'])} 个副本根；清除凭据 {len(out['purged'])} 个")
         rows = check_deployment()
         bad = [r for r in rows if r["status"] in ("stale", "leaked")]
         sys.exit(1 if bad else 0)

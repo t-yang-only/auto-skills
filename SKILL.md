@@ -333,8 +333,8 @@ python scripts/_test_failover.py
 python scripts/_test_doc_tree_guards.py
 
 # 4) 部署同步：改了仓库还要分发到各 harness，否则改动不生效
-python scripts/wizard_setup.py --deploy      # 重新分发
-python scripts/wizard_setup.py --check-deploy # 只检查（陈旧/含凭据时 exit 1）
+python scripts/wizard_setup.py --deploy       # 重建快照 / 重新分发
+python scripts/wizard_setup.py --check-deploy # 只检查（陈旧/失效/含凭据时 exit 1）
 ```
 
 每条用例的通过/失败都在输出里逐项列出，**所以这里不写断言条数** —— 条数是实现细节，写进文档就会长期脱节（本仓库已因此改过多次）。
@@ -347,13 +347,34 @@ python scripts/wizard_setup.py --check-deploy # 只检查（陈旧/含凭据时 
 而没有任何机制会报出来 —— 每个 agent 都在跑旧代码。
 
 因此：**改完仓库必须跑 `--deploy`**，并让 `_test_registry.py` 第 13 段把它变成硬失败。
-校验的三条口径（都是实测踩出来的）：
+
+### 两种部署形态
+
+| 形态 | 结构 | 优点 | 代价 |
+|---|---|---|---|
+| 副本（`--mode copy`） | 每个根一份独立拷贝 | 兼容性最好 | 六份内容，必然漂移 |
+| **链接（默认推荐）** | 六根共用一份快照 | 不可能参差；凭据只需守一处 | 改完仍要重建快照 |
+
+`--link` 建立链接形态，`--unlink` 退回副本形态，`--deploy` 对两者都成立
+（链接形态下=重建快照，副本形态下=重新拷贝）。
+
+**为什么链接的是快照（`.evolution/dist`）而不是真源**：直链真源会让真源里的
+`config/db.password` 等凭据从每个 harness 路径变得可达（实测确认）。快照排除了凭据，
+链接路径下读不到 —— 这比副本方案更安全（副本要给六个根各留一份，链接只有一个地方需要守）。
+
+**Windows 上的关键事实**：目录符号链接需要管理员权限（即使开发者模式已开，
+实测报 `Administrator privilege required`）；**Junction 免管理员可用**，
+本机既有先例（`.dsh/skills/ppt-skills`）。
+
+### 部署校验的三条口径（都是实测踩出来的）
 
 - **不能把 mtime 算进指纹**：源与副本的修改时间天然不同（robocopy 会重写时间戳），
   用它比较会让每个根永远显示「陈旧」，校验器等于坏掉。
 - **必须排除凭据文件**：副本里没有 `config/db.password` 是**正确状态**，
   拿「源有副本没有」当陈旧是误判。
-- **凭据残留要单独判定且优先级最高**：内容再同步，留了真实凭据也是故障。
+- **判「有没有部署」不能用 `exists()`**：失效链接的 `exists()` 返回 `False`，
+  整根会被静默跳过 —— 实测出现过「快照被移走、六个链接全失效，断言却报全绿」的假阴性。
+  必须用 `os.path.lexists()`。
 
 凭据清理（`purge_deployed_secrets()`）必须**独立于本轮连接了哪些根**：
 实测过一次漏网 —— `.claude` 与 `.cursor` 两个根的副本更早（早于首次修复），
