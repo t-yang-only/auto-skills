@@ -130,7 +130,7 @@ def _resolve_password(cfg: Dict[str, Any]) -> str:
 
 
 
-def get_db_connection(timeout: int = 8):
+def _get_db_connection_raw(timeout: int = 8):
     """
     根据配置获取数据库连接对象。
 
@@ -636,7 +636,7 @@ def sync_skills_registry_to_db() -> int:
         return 0
 
 
-def import_academic_references_file(ref_file_path: str) -> int:
+def _import_refs_raw(ref_file_path: str) -> int:
     """解析 compile_references_100.py 并存入 academic_references 表"""
     p = Path(ref_file_path).resolve()
     if not p.exists():
@@ -711,10 +711,7 @@ def import_academic_references_file(ref_file_path: str) -> int:
 
 # ---- academic_references：原实现没有 try/except 包住落库段，
 #      一次数据库故障会直接把异常抛给调用方。这里补上外层包装。----
-_import_refs_raw = import_academic_references_file
-
-
-def import_academic_references_file(ref_file_path: str) -> int:  # noqa: F811
+def import_academic_references_file(ref_file_path: str) -> int:
     try:
         return _import_refs_raw(ref_file_path)
     except Exception as e:
@@ -1068,10 +1065,7 @@ def _maybe_replay() -> None:
 
 # ---------------------------------------------------------------- 连接包装
 
-_get_db_connection_raw = get_db_connection
-
-
-def get_db_connection(timeout: int = 8):  # noqa: F811  故意覆盖上面的实现
+def get_db_connection(timeout: int = 8):
     """带熔断的数据库连接。
 
     与原始实现的唯一差别：熔断打开时立即抛 DatabaseUnavailable，不再发起 TCP 连接。
