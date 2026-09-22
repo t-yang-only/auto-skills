@@ -377,6 +377,18 @@ def main():
         check("计数同步器的锚点全部命中", not _dead,
               "失效 %d/%d 条（改文档措辞后必须同步改 RULES）: %s"
               % (len(_dead), len(_sc.RULES), "; ".join(_dead[:3])))
+
+        # 锚点「活着」还不够：文档里自述的锚点条数也必须等于 RULES 的实际条数，
+        # 否则新增一条锚点后文档仍在说旧数字（13 这个数字本身会撒谎）。
+        _n_rules = len(_sc.RULES)
+        _wrong = []
+        for _rel in ("README.md", "SKILL.md"):
+            _body = (pathlib.Path(ROOT) / _rel).read_text(encoding="utf-8")
+            for _m in re.finditer(r"（(\d+)\s*个锚点）", _body):
+                if int(_m.group(1)) != _n_rules:
+                    _wrong.append("%s: 文档=%s 实际=%d" % (_rel, _m.group(1), _n_rules))
+        check("文档自述的锚点条数等于 RULES 实际条数", not _wrong,
+              "; ".join(_wrong[:3]))
     except ImportError as e:
         check("计数同步器的锚点全部命中", False, "无法导入 sync_skill_counts: %s" % e)
 
