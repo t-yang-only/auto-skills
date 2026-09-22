@@ -43,6 +43,7 @@ INTERNAL_TOOLS = SKILL_ROOT / "tools"
 PRIVATE_EVOLUTION_TOOLS = SKILL_ROOT / ".evolution" / "custom_skills"
 
 USER_HOME = Path.home()
+# 固定优先根：自带工具 > 私有进化区 > 同级母技能 > 常见 harness 根。
 CANDIDATE_ROOTS = [
     INTERNAL_TOOLS,
     PRIVATE_EVOLUTION_TOOLS,
@@ -52,6 +53,56 @@ CANDIDATE_ROOTS = [
     USER_HOME / ".dsh" / "skills",
     USER_HOME / ".workbuddy-ai" / "skills",
 ]
+
+_DISCOVERED_ROOTS_CACHE: Optional[List[Path]] = None
+
+
+def discover_skill_roots() -> List[Path]:
+    """动态发现本机其它 harness 的 skills 根，补上硬编码列表的盲区。
+
+    硬编码只覆盖 4 个 harness；实测本机存在 20+ 个 skills 根
+    （.claude / .hermes / .cursor / .gemini / .codebuddy / .zcode / .openclaw ...），
+    用户在那些 harness 里装的技能，硬编码列表一个都解析不到 ——
+    「零遗漏多根回退解析」就成了空话。
+
+    判定：<home>/*/skills 与 <home>/.*/skills 中，目录里至少有一个子目录带
+    SKILL.md 才算技能根（避免把恰好叫 skills 的无关目录当成根）。
+    结果按路径排序后缓存，避免每次解析都扫目录。
+    """
+    global _DISCOVERED_ROOTS_CACHE
+    if _DISCOVERED_ROOTS_CACHE is not None:
+        return _DISCOVERED_ROOTS_CACHE
+
+    # Windows 上 glob 对同一目录可能返回大小写不同的多个条目，必须按规范化键去重，
+    # 否则同一根会被解析两遍（实测 20 个根被算成 33 个）。
+    def _key(x: Path) -> str:
+        return os.path.normcase(os.path.abspath(str(x)))
+
+    fixed = {_key(r) for r in CANDIDATE_ROOTS}
+    found: List[Path] = []
+    seen = set(fixed)
+    try:
+        candidates = list(USER_HOME.glob("*/skills")) + list(USER_HOME.glob(".*/skills"))
+    except Exception:
+        candidates = []
+    for cand in sorted(candidates, key=lambda x: _key(x)):
+        try:
+            k = _key(cand)
+            if not cand.is_dir() or k in seen:
+                continue
+            if any((sub / "SKILL.md").exists() for sub in cand.iterdir() if sub.is_dir()):
+                found.append(cand)
+                seen.add(k)
+        except Exception:
+            continue
+
+    _DISCOVERED_ROOTS_CACHE = found
+    return found
+
+
+def all_skill_roots() -> List[Path]:
+    """固定根优先，其后是动态发现的根（顺序稳定，便于排查命中来源）。"""
+    return list(CANDIDATE_ROOTS) + discover_skill_roots()
 
 # 成员定义：(id, 说明, 类别, 激活模式, 匹配正则, 推荐阶段)
 MEMBERS = [
@@ -283,7 +334,7 @@ def classify_task_tier(query: str, explicit_mode: str = "auto") -> Tuple[str, st
 
 
 def resolve_member_path(name: str) -> Tuple[Optional[Path], str]:
-    for root in CANDIDATE_ROOTS:
+    for root in all_skill_roots():
         target = root / name / "SKILL.md"
         if target.exists():
             if root == INTERNAL_TOOLS:
