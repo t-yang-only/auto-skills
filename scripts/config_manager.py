@@ -97,7 +97,17 @@ def load_config() -> Dict[str, Any]:
             save_config(get_default_config(), target="base")  # 首次初始化才写基础层
 
     base = get_default_config()
-    if yaml and CONFIG_FILE.exists():
+    if not yaml:
+        # 缺 pyyaml 时必须显式报出来，不能静默降级。
+        # 实测后果：load_config 会跳过基础层与覆盖层的读取，返回**默认空配置**
+        # —— database.enabled / type / host 全变成 None，而 is_db_enabled()
+        # 会因此把落库判定为「已禁用」。使用者看到的是「功能没生效」，
+        # 而不是「少了依赖」，排查方向会被完全带偏。
+        print("[WARN] 缺少 pyyaml 依赖：配置文件无法解析，"
+              "数据库与私有覆盖层的设置都不会生效。")
+        print("       请安装：pip install pyyaml pymysql")
+        return base
+    if CONFIG_FILE.exists():
         try:
             content = CONFIG_FILE.read_text(encoding="utf-8")
             data = yaml.safe_load(content)
@@ -107,7 +117,7 @@ def load_config() -> Dict[str, Any]:
             print(f"[WARN] 解析 config.yaml 失败: {e}，将采用默认空配置。")
 
     # 检查是否有 .evolution/ 私有层覆盖
-    if yaml and EVOLUTION_OVERRIDE.exists():
+    if EVOLUTION_OVERRIDE.exists():
         try:
             priv_content = EVOLUTION_OVERRIDE.read_text(encoding="utf-8")
             priv_data = yaml.safe_load(priv_content)
