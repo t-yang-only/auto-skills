@@ -116,6 +116,24 @@ def _add_noise(repo: Path) -> list[Path]:
     return made
 
 
+def _tamper_ledger_description(repo: Path) -> bool:
+    """把 registry.json 里某条 description 改花，模拟「台账与 SKILL.md 脱节」。"""
+    import json as _json
+    f = repo / "tools" / "registry.json"
+    try:
+        data = _json.loads(f.read_text(encoding="utf-8"))
+        key = sorted(data["tools"])[0]
+        # 只在原文后追加一句，保留「触发条件」形态 —— 否则会先被第 3c 段
+        # （description 必须有触发条件）抓到，验证不到第 11 段（台账脱节）。
+        data["tools"][key]["description"] = (
+            str(data["tools"][key].get("description") or "").rstrip() + " Use when tampered.")
+        f.write_text(_json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                     encoding="utf-8", newline="\n")
+        return True
+    except Exception:
+        return False
+
+
 CASES = [
     ("删 SKILL.md 树里 scripts/ 的一个子条目",
      lambda r: _drop_one_child(r, "SKILL.md", "scripts")),
@@ -127,6 +145,8 @@ CASES = [
      lambda r: _drop_all_children(r, "SKILL.md", "scripts", keep_head=False)),
     ("删 capability-map.md 最后一行矩阵",
      _drop_last_matrix_row),
+    ("篡改 registry.json 的一条 description（模拟忘记重扫台账）",
+     _tamper_ledger_description),
 ]
 
 
