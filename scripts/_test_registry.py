@@ -152,7 +152,8 @@ def main():
         if not os.path.isfile(p):
             check("%s 存在" % fn, False)
             continue
-        text = io.open(p, encoding="utf-8").read()
+        # 容忍 CRLF：core.autocrlf=true 的机器上检出可能是 CRLF
+        text = io.open(p, encoding="utf-8").read().replace("\r\n", "\n")
         m = re.search(r"```text\n(.*?)```", text, re.DOTALL)
         if not m:
             check("%s 有目录树代码块" % fn, False)
