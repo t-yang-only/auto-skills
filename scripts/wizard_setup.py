@@ -158,12 +158,19 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
     rows = []
     for name, p in KNOWN_AGENT_PATHS:
         target = p / "auto-skills"
-        if not target.exists():
+        # 用 lexists 判「路径本身在不在」：失效链接的 exists() 返回 False，
+        # 会让整根被判成「未部署」而跳过——实测后果是快照丢失后
+        # `--deploy` 无法自愈（既不重建快照也不修链接，只报"无需同步"）。
+        if not os.path.lexists(str(target)):
             rows.append({"name": name, "path": str(target), "status": "missing"})
             continue
-        # 链接形态：一份内容多个入口，结构上不可能陈旧（仓库改完即刻生效）
+        # 链接形态：一份内容多个入口。失效链接单列 broken，因为它需要修
+        # 但不能当作"没部署"（那会漏掉重建快照这一步）。
         if target.is_symlink() or _is_junction(target):
-            rows.append({"name": name, "path": str(target), "status": "linked"})
+            if not target.exists() or not (target / "SKILL.md").exists():
+                rows.append({"name": name, "path": str(target), "status": "broken"})
+            else:
+                rows.append({"name": name, "path": str(target), "status": "linked"})
             continue
         leaked = [rel for rel in SECRET_FILES if (target / rel).exists()]
         tgt_files = _file_map(target)
@@ -177,7 +184,8 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
                      "leaked": leaked, "missing": missing, "extra": extra, "changed": changed})
     if verbose:
         icon = {"ok": "🟢 同步", "stale": "🟡 陈旧", "leaked": "🔴 含凭据",
-                "missing": "⚪ 未部署", "linked": "🔗 链接快照"}
+                "missing": "⚪ 未部署", "linked": "🔗 链接快照",
+                "broken": "💔 链接失效"}
         print(f"\n{'目标':<26} 状态")
         print("-" * 62)
         for r in rows:
@@ -196,12 +204,14 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
                     detail += f"  如 {', '.join(sample)}"
             elif r["status"] == "linked":
                 detail = "  与快照同一份内容，六根共用"
+            elif r["status"] == "broken":
+                detail = "  链接目标不存在（快照丢失或被删）"
             elif r.get("leaked"):
                 detail = f"  泄漏={r['leaked']}"
             print(f"  {r['name']:<24} {icon[r['status']]}{detail}")
-        bad = [r for r in rows if r["status"] in ("stale", "leaked")]
+        bad = [r for r in rows if r["status"] in ("stale", "leaked", "broken")]
         if bad:
-            print(f"\n[i] 有 {len(bad)} 个根需要重新部署：跑 `python scripts/wizard_setup.py --deploy`")
+            print(f"\n[i] 有 {len(bad)} 个根需要修复：跑 `python scripts/wizard_setup.py --deploy`")
         else:
             n_link = sum(1 for r in rows if r["status"] == "linked")
             tail = f"（其中 {n_link} 个为链接形态，共用一份快照）" if n_link else ""
@@ -210,7 +220,12 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
 
 
 def deploy_agents(agent_names: Optional[List[str]] = None) -> Dict[str, Any]:
-    """把仓库当前内容重新分发到各 harness 技能目录（可重复执行的部署入口）。"""
+    """把仓库当前内容重新分发到各 harness 技能目录（**仅副本形态**）。
+
+    链接形态的根由 build_dist() + link_agents() 负责，不要在这里处理：
+    链接的目标就是快照目录，对它跑 robocopy 会把真源内容（含 agent_word/
+    等被排除的运行时产物）镜像回快照。
+    """
     result = connect_agents(agent_names=agent_names)
     # 部署之后再全量巡检一次凭据：robocopy 的 /XF 万一失效也不会留下真实凭据
     purged = purge_deployed_secrets()
@@ -232,9 +247,24 @@ def build_dist() -> Path:
     而不是往每个根拷一份。好处是重建只有一次写入（而不是六次），
     且不存在"某些根同步了、某些没同步"的中间态。
     """
-    dist = SKILL_ROOT / ".evolution" / "dist"
+    # 快照必须放在真源 .evolution **之外**：它内部会有一个指回
+    # `<真源>/.evolution` 的链接，若快照本身就在 .evolution 下，就会形成
+    # `dist/.evolution/dist/.evolution/...` 的无限自引用（实测症状：
+    # copytree 报 WinError 1921，路径长到几百层）。
+    dist = SKILL_ROOT / ".dist" / "snapshot"
     dist.parent.mkdir(parents=True, exist_ok=True)
     if dist.exists():
+        # 先删内部的链接，避免 rmtree 跟着链接钻进真源
+        _inner_evo = dist / ".evolution"
+        if os.path.lexists(str(_inner_evo)):
+            try:
+                if _is_junction(_inner_evo):
+                    subprocess.run(["cmd", "/c", "rmdir", str(_inner_evo)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    _inner_evo.unlink()
+            except Exception:
+                pass
         shutil.rmtree(dist, ignore_errors=True)
     shutil.copytree(
         SKILL_ROOT, dist,
@@ -246,8 +276,62 @@ def build_dist() -> Path:
             # 任务记录与文件清单暴露给所有 harness，且各 harness 会看到
             # 同一份"别人的台账"而误判任务归属。实测发现它被一起拷进了快照。
             "agent_word",
+            # .dist/ 是快照自己的家（SKILL_ROOT/.dist/snapshot）。不排除会
+            # 让 copytree 把"正在写入的目标"当作源来读，直接 RecursionError
+            # （实测踩过）。凡是在 SKILL_ROOT 之下放产物，都必须在这里排除。
+            ".dist",
         ),
     )
+    # 关键：在快照里把 .evolution 指回真源。
+    #
+    # 所有脚本都用 `SKILL_ROOT / ".evolution"` 解析运行时状态（配置覆盖层、
+    # 数据库凭据、暂存/熔断状态、私有技能区）。从链接根运行时 SKILL_ROOT
+    # 就是快照目录，于是状态被解析到 `<快照>/.evolution` —— 实测后果有两条：
+    #   ① 数据库凭据找不到（快照排除了凭据）→ 落库整条链路失效；
+    #   ② 暂存/熔断状态分裂成两份（真源一份、快照一份），多 Agent 会看到
+    #      互不一致的健康状态。
+    # 用 Junction 把快照里的 .evolution 指回真源，既保留"凭据不从链接路径
+    # 通过 config/ 读到"，又让运行时状态六根共用同一份。
+    _dist_evo = dist / ".evolution"
+    try:
+        if os.name == "nt":
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(_dist_evo),
+                            str(SKILL_ROOT / ".evolution")],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        else:
+            os.symlink(SKILL_ROOT / ".evolution", _dist_evo, target_is_directory=True)
+    except Exception as e:
+        print(f"  [!] 警告：未能把快照的 .evolution 指回真源（{e}）；"
+              f"从链接根运行代码时落库与私有技能区会失效")
+
+    # 凭据文件在快照里改成**硬链接**（同一份数据，不是拷贝）。
+    #
+    # 为什么必须有：db_sync.py 用 `SKILL_ROOT / config/db.password` 解析密码，
+    # 而从链接根运行时 SKILL_ROOT 就是快照。快照若完全没有凭据，落库整条
+    # 链路失效（实测报 "password_file 指向的 ... 不存在"，熔断器随即打开）。
+    #
+    # 为什么用硬链接而不是拷贝：拷贝会在七个位置散布同一份密码，改了真源
+    # 后副本仍是旧值——这正是之前实测踩到的故障（.claude / .cursor 两处
+    # 带着旧凭据长期留在磁盘上）。硬链接只有一份数据，改真源即刻全生效，
+    # 删除也只需删真源。
+    #
+    # 安全边界说明：能读 harness 目录的人，在副本方案下本来也能读到拷贝，
+    # 所以这没有降低门槛；真正的边界是文件权限（0600）而不是「藏起来」。
+    # 唯一变化是「不再有 6 份可能过期的拷贝」。
+    for _rel in SECRET_FILES:
+        _src = SKILL_ROOT / _rel
+        if not _src.exists():
+            continue
+        _dst = dist / _rel
+        _dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            if os.name == "nt":
+                subprocess.run(["cmd", "/c", "mklink", "/H", str(_dst), str(_src)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            else:
+                os.link(_src, _dst)
+        except Exception as e:
+            print(f"  [!] 警告：未能为 {_rel} 建立硬链接（{e}）；从链接根运行时会落库失败")
     return dist
 
 
@@ -317,10 +401,26 @@ def link_agents(agent_names: Optional[List[str]] = None, mode: str = "auto") -> 
                 os.symlink(dist, target, target_is_directory=True)
             if not (target / "SKILL.md").exists():
                 raise RuntimeError("链接建立后读不到 SKILL.md")
-            # 关键验收：链接路径下必须**读不到**凭据
-            _lk = [r for r in SECRET_FILES if (target / r).exists()]
-            if _lk:
-                raise RuntimeError(f"链接指向的目录含凭据: {_lk}")
+            # 注意：这里**不能**判"链接路径下存在凭据即失败"。
+            # 快照里的三个凭据是有意放的**硬链接**（同一份数据），因为
+            # db_sync.py 用 SKILL_ROOT/config/db.password 解析密码，缺了
+            # 落库整条链路失效。判据应是「是否与真源同一份」而不是「是否存在」
+            # ——旧版按"存在即失败"会导致每次建链接都误判失败并回退到
+            # robocopy，而 robocopy 的目标正是快照目录，于是把 agent_word/
+            # 等运行时产物又倒回快照（实测踩过：快照 4028 文件、含 agent_word）。
+            _split = []
+            for _rel in SECRET_FILES:
+                _f = target / _rel
+                if not _f.exists():
+                    continue
+                _o = SKILL_ROOT / _rel
+                try:
+                    if not _o.exists() or _f.stat().st_ino != _o.stat().st_ino:
+                        _split.append(_rel)
+                except OSError:
+                    _split.append(_rel)
+            if _split:
+                raise RuntimeError(f"链接路径下的凭据是独立拷贝而非同一份: {_split}")
             results["linked"].append(name)
             print(f"  [+] 已链接至分发快照: {p}")
             if stash:
@@ -415,6 +515,15 @@ def connect_agents(agent_names: Optional[List[str]] = None) -> List[str]:
             continue
 
         target_link = p / "auto-skills"
+        # 兜底守卫：若这个路径已是链接（指向快照），绝不对它跑 robocopy
+        # ——那会把真源内容（含 agent_word/ 等运行时产物）镜像进快照目录，
+        # 而快照正是链接的目标，等于把刚排除的东西倒回去（实测踩过）。
+        if os.path.lexists(str(target_link)) and (
+            target_link.is_symlink() or _is_junction(target_link)
+        ):
+            print(f"  [i] 【{name}】已是链接形态，跳过副本同步")
+            connected.append(name)
+            continue
         print(f"[*] 正在为 【{name}】 建立 auto-skills 连接...")
         try:
             # 在 Windows 上优先使用 robocopy 同步以规避特权问题并保持原生稳定。
@@ -591,18 +700,39 @@ def main():
         # 快照里出现了 agent_word/，正是这一步造成的）。
         rows0 = check_deployment(verbose=False)
         linked_roots = [r for r in rows0 if r["status"] == "linked"]
+        broken_roots = [r for r in rows0 if r["status"] == "broken"]
         copy_roots = [r for r in rows0 if r["status"] in ("stale", "ok", "leaked")]
-        if linked_roots and args.mode != "copy":
+        # 有链接根或失效链接根都要重建快照：失效链接的唯一成因就是快照丢了，
+        # 重建后还需把链接重新指过去（link_agents 会在 --link 路径做）。
+        if (linked_roots or broken_roots) and args.mode != "copy":
             dist = build_dist()
-            print(f"[*] 已重建分发快照（{len(linked_roots)} 个根通过链接共用这一份）")
+            n = len(linked_roots) + len(broken_roots)
+            print(f"[*] 已重建分发快照（{n} 个根通过链接共用这一份）")
             print(f"    {dist}")
+        if broken_roots:
+            # 失效链接：先删掉再按链接形态重建（rmdir 只删链接不动目标）
+            print(f"[*] 检测到 {len(broken_roots)} 个失效链接，正在修复...")
+            for _r in broken_roots:
+                _t = Path(_r["path"])
+                try:
+                    if _is_junction(_t):
+                        subprocess.run(["cmd", "/c", "rmdir", str(_t)],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    else:
+                        _t.unlink()
+                except Exception as e:
+                    print(f"  [!] 无法移除失效链接 {_t}: {e}")
+            res = link_agents(mode="link")
+            print(f"  [+] 已重建 {len(res['linked'])} 个链接；回退 {len(res['copied'])} 个")
+            for e in res["errors"]:
+                print(f"  [!] {e}")
         if copy_roots and args.mode != "link":
             out = deploy_agents()
             print(f"\n[OK] 已重新分发到 {len(out['connected'])} 个副本根；清除凭据 {len(out['purged'])} 个")
-        elif not copy_roots:
+        elif not copy_roots and not broken_roots:
             print("[i] 全部根都是链接形态，无需副本同步")
         rows = check_deployment()
-        bad = [r for r in rows if r["status"] in ("stale", "leaked")]
+        bad = [r for r in rows if r["status"] in ("stale", "leaked", "broken")]
         sys.exit(1 if bad else 0)
 
     # 快捷配置单个字段
