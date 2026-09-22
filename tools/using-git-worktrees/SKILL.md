@@ -1,5 +1,6 @@
 ---
 name: using-git-worktrees
+x-category: implement
 description: "Physical isolation for parallel agent work: one git worktree per independent task so two agents never edit the same files at the same time. Use when more than one agent or session works in the same repository, when a long-running change must not block other work, when comparing two implementations side by side, or when the user asks for worktree / 工作树 / 隔离开发."
 ---
 

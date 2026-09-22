@@ -1,5 +1,6 @@
 ---
 name: writing-plans
+x-category: design
 description: "Turn an agreed direction into a step-by-step plan someone else can execute: each step is one verifiable, committable slice with its own acceptance and rollback point. Use before starting multi-step work, when handing work to another agent or a future session, when the user asks for a plan / 计划 / 方案 / 拆任务, or when a task is big enough that starting immediately would mean improvising."
 ---
 

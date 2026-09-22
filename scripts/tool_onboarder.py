@@ -104,7 +104,7 @@ def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
                             j += 1
                         v = " ".join(desc_parts)
                         i = j - 1
-                    if k in ("name", "description") and v:
+                    if k in ("name", "description", "x-category") and v:
                         meta[k] = v
                 i += 1
         else:
@@ -117,19 +117,36 @@ def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
     return meta
 
 
-def infer_category(name: str) -> str:
+VALID_CATEGORIES = ("verify", "acquire", "implement", "design", "understand", "handoff", "persona", "general")
+
+
+def infer_category(name: str, declared: str = "") -> str:
+    """类别推断：frontmatter 显式声明优先，否则按名称关键词回退。
+
+    显式声明是权威来源——技能自己最清楚它属于哪一类；靠名字猜关键词会随
+    命名风格变化而失效。实测：finishing-a-development-branch / writing-plans /
+    using-git-worktrees / resolving-merge-conflicts / writing-for-agents 五个
+    流程类技能都因名字不含关键词而被归为 general，而 general 是"没猜出来"的
+    兜底值，不是一类真实职责。
+
+    用法：在 SKILL.md 的 frontmatter 里写 `x-category: verify` 即覆盖推断
+    （用 x- 前缀是因为官方 Agent Skills 规范只允许白名单键 + metadata + x- 前缀）。
+    """
+    d = (declared or "").strip().lower()
+    if d in VALID_CATEGORIES:
+        return d
     name_lower = name.lower()
-    if any(w in name_lower for w in ("test", "debug", "ci", "review", "security", "pentest", "playwright", "verif", "audit", "diagnos")):
+    if any(w in name_lower for w in ("test", "debug", "ci", "review", "security", "pentest", "playwright", "verif", "audit", "diagnos", "merge", "conflict")):
         return "verify"
     elif any(w in name_lower for w in ("find", "discover", "skillnet")):
         return "acquire"
-    elif any(w in name_lower for w in ("ponytail", "cli", "jupyter", "tdd", "ppt", "slide", "incremental", "implement")):
+    elif any(w in name_lower for w in ("ponytail", "cli", "jupyter", "tdd", "ppt", "slide", "incremental", "implement", "worktree")):
         return "implement"
-    elif any(w in name_lower for w in ("brainstorm", "grill", "markdown")):
+    elif any(w in name_lower for w in ("brainstorm", "grill", "markdown", "writing", "plan")):
         return "design"
     elif any(w in name_lower for w in ("onboard", "codebase")):
         return "understand"
-    elif any(w in name_lower for w in ("closeout", "handoff", "memory", "nm-")):
+    elif any(w in name_lower for w in ("closeout", "handoff", "memory", "nm-", "finishing")):
         return "handoff"
     elif any(w in name_lower for w in ("girlfriend", "caveman", "echo")):
         return "persona"
@@ -149,7 +166,7 @@ def scan_dir(base_dir: Path, registry_file: Path, scope_name: str) -> Dict[str, 
     for d in subdirs:
         skill_md = d / "SKILL.md"
         meta = parse_skill_metadata(skill_md) if skill_md.exists() else {"name": d.name, "description": f"目录 {d.name}"}
-        cat = infer_category(d.name)
+        cat = infer_category(d.name, meta.get("x-category", ""))
 
         registry["tools"][d.name] = {
             "name": meta.get("name", d.name),

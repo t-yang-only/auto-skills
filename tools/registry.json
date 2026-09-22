@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 35,
+  "tools_count": 37,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -76,7 +76,7 @@
     "finishing-a-development-branch": {
       "name": "finishing-a-development-branch",
       "description": "Close out a branch properly: verify before merging, pick the right merge shape, clean up the worktree and the task ledger, and leave a record when the work is abandoned instead of merged. Use when a branch or worktree is done, before merging / 合并 / 收尾, when the user asks to wrap up / 收尾 / 合并分支, or when work is about to be discarded.",
-      "category": "general",
+      "category": "handoff",
       "path": "tools/finishing-a-development-branch",
       "has_skill_md": true
     },
@@ -164,6 +164,13 @@
       "path": "tools/requesting-code-review",
       "has_skill_md": true
     },
+    "resolving-merge-conflicts": {
+      "name": "resolving-merge-conflicts",
+      "description": "解决进行中的 git merge / rebase 冲突。当 `git status` 显示 \"You have unmerged paths\"、rebase 停在某一步、或 cherry-pick / pull 报冲突时使用；也适用于把长期分支合回主干前的预演。触发词：合并冲突、rebase 冲突、merge conflict、冲突解决、unmerged paths。",
+      "category": "verify",
+      "path": "tools/resolving-merge-conflicts",
+      "has_skill_md": true
+    },
     "security-best-practices": {
       "name": "security-best-practices",
       "description": "Perform language and framework specific security best-practice reviews and suggest improvements. Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-default coding help. Trigger only for supported languages (python, javascript/typescript, go). Do not trigger for general code review, debugging, or non-security tasks.",
@@ -223,7 +230,7 @@
     "using-git-worktrees": {
       "name": "using-git-worktrees",
       "description": "Physical isolation for parallel agent work: one git worktree per independent task so two agents never edit the same files at the same time. Use when more than one agent or session works in the same repository, when a long-running change must not block other work, when comparing two implementations side by side, or when the user asks for worktree / 工作树 / 隔离开发.",
-      "category": "general",
+      "category": "implement",
       "path": "tools/using-git-worktrees",
       "has_skill_md": true
     },
@@ -241,10 +248,17 @@
       "path": "tools/verification-before-completion",
       "has_skill_md": true
     },
+    "writing-for-agents": {
+      "name": "writing-for-agents",
+      "description": "写给 agent 读的文档。当你要新建或修改一个 SKILL.md、AGENTS.md、CLAUDE.md，或任何被指针引用、由 AI 按需读取的文档时使用；也适用于排查\"技能写了但从不被触发\"\"规则写了但总被绕过\"这类失效。触发词：写技能、改 SKILL.md、AGENTS.md 措辞、description 触发、文档不生效。",
+      "category": "design",
+      "path": "tools/writing-for-agents",
+      "has_skill_md": true
+    },
     "writing-plans": {
       "name": "writing-plans",
       "description": "Turn an agreed direction into a step-by-step plan someone else can execute: each step is one verifiable, committable slice with its own acceptance and rollback point. Use before starting multi-step work, when handing work to another agent or a future session, when the user asks for a plan / 计划 / 方案 / 拆任务, or when a task is big enough that starting immediately would mean improvising.",
-      "category": "general",
+      "category": "design",
       "path": "tools/writing-plans",
       "has_skill_md": true
     }
