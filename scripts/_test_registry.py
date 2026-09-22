@@ -92,7 +92,16 @@ def main():
         text = io.open(p, encoding="utf-8").read()
         # 抓「NN 个/大」形式的计数，排除年份等噪声
         counts = set()
+        # 中文形式：「30 大顶流」「30 个高星」
         for m in re.finditer(r"(\d{2,3})\s*(?:个|大)\s*(?:顶流|高星|核心|成员|内置|通用)", text):
+            counts.add(int(m.group(1)))
+        # 英文形式：「Bundles 30 top-tier」「Members 30」
+        for m in re.finditer(r"(?:Bundles|Members|skills?)\s+(\d{2,3})\b", text):
+            counts.add(int(m.group(1)))
+        for m in re.finditer(r"\b(\d{2,3})\s+(?:top-tier|Self-Contained|universal workflow)", text):
+            counts.add(int(m.group(1)))
+        # 徽章 URL 形式：badge/Members-30%20Self--Contained
+        for m in re.finditer(r"badge/[A-Za-z]+-(\d{2,3})(?:%20|\b)", text):
             counts.add(int(m.group(1)))
         stale = sorted(c for c in counts if c != n)
         check("%s 计数与 %d 一致" % (fn, n), not stale,
