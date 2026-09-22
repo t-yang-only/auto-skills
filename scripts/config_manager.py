@@ -91,8 +91,10 @@ def load_config() -> Dict[str, Any]:
         if EXAMPLE_CONFIG.exists():
             try:
                 CONFIG_FILE.write_text(EXAMPLE_CONFIG.read_text(encoding="utf-8"), encoding="utf-8")
-            except Exception:
-                pass
+            except Exception as e:
+                # 首次初始化失败必须报出来：不然后续所有读取都走默认值，
+                # 使用者会以为「配置好了」而实际什么都没落盘。
+                print(f"[WARN] 初始化 {CONFIG_FILE} 失败: {e}（将使用内置默认配置）")
         else:
             save_config(get_default_config(), target="base")  # 首次初始化才写基础层
 
@@ -123,8 +125,12 @@ def load_config() -> Dict[str, Any]:
             priv_data = yaml.safe_load(priv_content)
             if isinstance(priv_data, dict):
                 base = deep_merge(base, priv_data)
-        except Exception:
-            pass
+        except Exception as e:
+            # 覆盖层解析失败**必须报出来**：它承载着真实数据库地址、凭据路径与
+            # 各项开关，静默跳过会让程序用基础层的占位符继续跑，表现为
+            # 「配置改了但没生效」——和缺 pyyaml 那类静默降级同一性质。
+            print(f"[WARN] 解析私有覆盖层 {EVOLUTION_OVERRIDE} 失败: {e}")
+            print("       将只用基础层配置；改动不会生效。")
 
     return base
 
