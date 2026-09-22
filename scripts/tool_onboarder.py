@@ -71,7 +71,7 @@ def _write_skill_skeleton(skill_md_path: Path, name: str, source: Path, scope_de
             "description: >-\n  TODO（必填）：说明本技能做什么、何时使用。当前为自动纳管占位。\n"
             "---\n\n# %s\n\n> 自动纳管于 %s，正文待完善。\n" % (name, name, scope_desc)
         )
-    skill_md_path.write_text(body, encoding="utf-8")
+    skill_md_path.write_text(body, encoding="utf-8", newline="\n")
 
 
 def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
@@ -123,7 +123,7 @@ def infer_category(name: str) -> str:
         return "verify"
     elif any(w in name_lower for w in ("find", "discover", "skillnet")):
         return "acquire"
-    elif any(w in name_lower for w in ("ponytail", "cli", "jupyter", "tdd", "ppt", "slide")):
+    elif any(w in name_lower for w in ("ponytail", "cli", "jupyter", "tdd", "ppt", "slide", "incremental", "implement")):
         return "implement"
     elif any(w in name_lower for w in ("brainstorm", "grill", "markdown")):
         return "design"
@@ -160,7 +160,7 @@ def scan_dir(base_dir: Path, registry_file: Path, scope_name: str) -> Dict[str, 
         }
 
     registry["tools_count"] = len(registry["tools"])
-    registry_file.write_text(json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8")
+    registry_file.write_text(json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     return registry
 
 

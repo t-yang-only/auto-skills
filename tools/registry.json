@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 30,
+  "tools_count": 31,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -85,6 +85,13 @@
       "description": "Interview the user relentlessly about a plan or design until reaching confidence through Socratic questioning. Use when: stress-testing a plan, probing design assumptions, validating feasibility. Triggers on: grill me, stress-test, interview me, validate plan, probe design.",
       "category": "design",
       "path": "tools/grill-me",
+      "has_skill_md": true
+    },
+    "incremental-implementation": {
+      "name": "incremental-implementation",
+      "description": "Thin vertical slices: implement, verify, and commit one independently reversible unit at a time instead of a big-bang change. Use when a change touches more than one file, when starting a feature or refactor, when a task feels too large to verify in one shot, or when the user asks for incremental / 分步 / 小步 提交.",
+      "category": "implement",
+      "path": "tools/incremental-implementation",
       "has_skill_md": true
     },
     "jupyter-notebook": {
