@@ -39,7 +39,8 @@ auto-skills/
 ├── .gitattributes          # 统一行尾为 LF (防 Windows autocrlf 把检出改成 CRLF)
 ├── config/                 # 统一配置中心 (默认下载时配置细节为空)
 │   ├── config.yaml         # 活跃配置文件 (默认空配置模版)
-│   └── config.example.yaml # 完整配置注释范例文本
+│   ├── config.example.yaml # 完整配置注释范例文本
+│   └── db.password.example # 数据库密码文件范本 (复制为 db.password 并填真值)
 ├── scripts/
 │   ├── auto_router.py      # v3.0 智能多根自适应寻址、任务分级、协同命令与引导分发器
 │   ├── db_sync.py          # 数据库存储与全链路自动落库引擎 (MySQL 8.4 专有子账户支持)
