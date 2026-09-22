@@ -539,6 +539,56 @@ def main():
     except Exception as e:
         check("部署副本与仓库同步", False, "无法导入 wizard_setup: %s" % e)
 
+    # ---- [14] 路由入口一致性：CLI 与函数直调必须同档 ----
+    # 存在的理由：`route` 子命令原先没在 main() 的子命令分发区登记，于是它落进
+    # 兜底的 `" ".join(args.query)`，把子命令名当成任务内容传给判定函数——
+    # `auto_router.py route 更新 README 的安装说明` 实际判定的是「route 更新
+    # README 的安装说明」，多 6 个字符让 15 字（<=18 阈值，应 FAST_PATH）变成
+    # 21 字，落到「默认走向完整流程」规则，把省 Token 的极速模式误升成完整 SDLC。
+    # 实测：函数直调判 FAST_PATH，CLI 判 FULL_SDLC。
+    # 本段用「同一条输入两条路径必须同档」把它钉死。
+    try:
+        import auto_router as _ar
+        _pairs = [
+            ("改个错别字", "FAST_PATH"),
+            ("更新 README 的安装说明", "FAST_PATH"),
+            ("加一行日志", "FAST_PATH"),
+            ("修复登录页的样式问题", "FAST_PATH"),
+            ("重构支付模块", "FULL_SDLC"),
+            ("设计新的鉴权架构", "FULL_SDLC"),
+        ]
+        _mismatch, _unexpected = [], []
+        for _q, _want in _pairs:
+            _tier, _ = _ar.classify_task_tier(_q)
+            if _tier != _want:
+                _unexpected.append("%s→%s(期望%s)" % (_q, _tier, _want))
+        check("路由档位判定符合预期（%d 例）" % len(_pairs), not _unexpected,
+              "; ".join(_unexpected[:3]) if _unexpected else "")
+
+        # CLI 路径：必须与函数路径同档（防止子命令名被当任务内容）
+        import subprocess as _sp
+        _env = dict(os.environ)
+        _env["PYTHONIOENCODING"] = "utf-8"
+        _router = str(pathlib.Path(ROOT) / "scripts" / "auto_router.py")
+        for _q, _want in _pairs[:3]:
+            _r = _sp.run([sys.executable, _router, "route", _q],
+                         capture_output=True, text=True, encoding="utf-8",
+                         errors="replace", env=_env, timeout=120)
+            _out = (_r.stdout or "") + (_r.stderr or "")
+            _m = re.search(r'"task_tier":\s*"(\w+)"', _out)
+            _cli = _m.group(1) if _m else "?"
+            _mq = re.search(r'"query":\s*"([^"]*)"', _out)
+            _shown = _mq.group(1) if _mq else "?"
+            if _cli != _want:
+                _mismatch.append("%s: CLI=%s(期望%s)" % (_q, _cli, _want))
+            # 顺带断言：query 不得含子命令名
+            if _shown.startswith("route "):
+                _mismatch.append("%s: query 含子命令名 %r" % (_q, _shown))
+        check("CLI route 与函数直调同档且 query 不含子命令名", not _mismatch,
+              "; ".join(_mismatch[:3]) if _mismatch else "")
+    except Exception as e:
+        check("路由入口一致性", False, "无法导入 auto_router: %s" % e)
+
     return report()
 
 
