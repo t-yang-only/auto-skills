@@ -519,6 +519,23 @@ def main():
                         _bad_dist.append("%s(无法比对)" % _rel)
                 check("分发快照不含拷贝形式的本地运行时产物", not _bad_dist,
                       "快照里出现: %s（跑 wizard_setup.py --deploy 重建）" % _bad_dist)
+
+            # 私有进化区必须完好。这条是**数据保护**断言：build_dist 里曾用
+            # `rd /s /q` 删旧快照，而快照含指向真源 .evolution 的 Junction，
+            # rd /s 跟着链接把真源的 config.yaml / custom_skills / secrets
+            # 一起删了（实测造成一次真实损失，从备份 zip 恢复）。此后任何
+            # 让它变空或缺失核心成员的改动都必须立即变红。
+            _evo = pathlib.Path(ROOT) / ".evolution"
+            _evo_core = ["config.yaml", "db_health.json", "README.md"]
+            _missing_core = [x for x in _evo_core if not (_evo / x).exists()]
+            check("私有进化区核心文件完好（防误删）", not _missing_core,
+                  "缺失: %s —— 若刚跑过 --deploy 请检查是否误用了会跟随链接的删除命令"
+                  % _missing_core)
+            # 目录级成员：允许为空目录，但目录本身要被创建出来
+            _evo_dirs = ["custom_skills", "secrets", "profile"]
+            _missing_dirs = [d for d in _evo_dirs if not (_evo / d).exists()]
+            check("私有进化区目录结构完整", not _missing_dirs,
+                  "缺失目录: %s" % _missing_dirs)
     except Exception as e:
         check("部署副本与仓库同步", False, "无法导入 wizard_setup: %s" % e)
 

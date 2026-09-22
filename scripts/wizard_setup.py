@@ -111,7 +111,18 @@ def purge_deployed_secrets(verbose: bool = True) -> List[str]:
 
 
 def _file_map(d: Path) -> Dict[str, str]:
-    """目录内容映射 {相对路径: sha256}，排除 .git/.evolution/__pycache__ 与凭据文件。"""
+    """目录内容映射 {相对路径: sha256}。
+
+    排除三类**不属于分发内容**的东西：
+    - 版本库与缓存：`.git` / `__pycache__`
+    - 私有进化区：`.evolution`（它是运行时状态，快照里以 Junction 指回真源，
+      逐文件比对没有意义也不该比）
+    - 分发快照自身：`.dist`（不排除的话真源侧会把快照内容也数进来，
+      造成「快照缺 172 个文件」这类假差异——实测踩过）
+    - 本地运行时台账：`agent_word`（同理，快照里本就没有它）
+
+    凭据文件也排除：副本形态下副本没有凭据是正确状态。
+    """
     import hashlib
     out: Dict[str, str] = {}
     root = d.resolve()
@@ -119,7 +130,13 @@ def _file_map(d: Path) -> Dict[str, str]:
         if not f.is_file():
             continue
         rel = f.relative_to(root).as_posix()
-        if any(x in f.parts for x in (".git", ".evolution", "__pycache__")):
+        # 必须按**相对路径**的组成部分判断，不能用 f.parts：那是绝对路径的
+        # 分段，会把 root 自身路径里的目录名也算进来。实测踩过——快照位于
+        # `<真源>/.dist/snapshot`，用 f.parts 判 ".dist" 会把快照里**所有**
+        # 文件排除掉，得到空映射（表现：链接侧"缺 168 个文件"的假差异）。
+        parts = Path(rel).parts
+        if any(x in parts for x in (".git", ".evolution", "__pycache__", ".dist",
+                                    "agent_word")):
             continue
         if rel in SECRET_FILES:
             continue  # 凭据本就不该分发，不参与比对
@@ -164,11 +181,22 @@ def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
         if not os.path.lexists(str(target)):
             rows.append({"name": name, "path": str(target), "status": "missing"})
             continue
-        # 链接形态：一份内容多个入口。失效链接单列 broken，因为它需要修
-        # 但不能当作"没部署"（那会漏掉重建快照这一步）。
+        # 链接形态：一份内容多个入口。但要**同时**验证链接指向的快照内容
+        # 是否与真源一致 —— 只判"链接可达"是假绿（实测：把快照里的文件改坏，
+        # 六根全部照常报 linked，没有任何提示）。
         if target.is_symlink() or _is_junction(target):
             if not target.exists() or not (target / "SKILL.md").exists():
                 rows.append({"name": name, "path": str(target), "status": "broken"})
+                continue
+            # 快照与真源的逐文件比对（排除 .evolution 链接与凭据）
+            snap_files = _file_map(target)
+            drift_missing = sorted(set(src_files) - set(snap_files))
+            drift_changed = sorted(k for k in set(src_files) & set(snap_files)
+                                   if src_files[k] != snap_files[k])
+            if drift_missing or drift_changed:
+                rows.append({"name": name, "path": str(target), "status": "stale",
+                             "missing": drift_missing, "changed": drift_changed,
+                             "extra": []})
             else:
                 rows.append({"name": name, "path": str(target), "status": "linked"})
             continue
@@ -235,6 +263,14 @@ def deploy_agents(agent_names: Optional[List[str]] = None) -> Dict[str, Any]:
 def build_dist() -> Path:
     """构建分发快照：真源的完整副本，但**不含本地凭据**。
 
+    ⚠️ 危险操作警告（2026-09-22 实测造成过一次真实数据损失）：
+    本函数会删除旧快照。**绝不能对快照目录使用 `rd /s /q` 或任何会跟随
+    reparse point 的递归删除** —— 快照里有一个指向真源 `<SKILL_ROOT>/.evolution`
+    的 Junction，`rd /s` 会跟着它把真源的配置覆盖层（config.yaml）、私有技能区
+    （custom_skills/）、凭据（secrets/notify_channels.json）与用户画像一起删掉。
+    当时清空后靠 11:14 的备份 zip 才恢复。正确做法是先逐层剥离链接
+    （`rmdir <link>` 只删链接本身），再用 shutil.rmtree 删空壳。
+
     为什么需要这一层：直接把 harness 目录链接到真源有个副作用——
     真源里的 config/db.password 等凭据会从每个链接路径变得可达
     （实测确认：链接后 `~/.cursor/skills/auto-skills/config/db.password`
@@ -253,19 +289,51 @@ def build_dist() -> Path:
     # copytree 报 WinError 1921，路径长到几百层）。
     dist = SKILL_ROOT / ".dist" / "snapshot"
     dist.parent.mkdir(parents=True, exist_ok=True)
-    if dist.exists():
-        # 先删内部的链接，避免 rmtree 跟着链接钻进真源
-        _inner_evo = dist / ".evolution"
-        if os.path.lexists(str(_inner_evo)):
+    if os.path.lexists(str(dist)):
+        # 先剥离内部链接再删：快照里 .evolution 是指回真源的 Junction，
+        # 直接 rmtree 会跟着链接钻进真源（或留下无法删除的残壳，
+        # 实测报 FileExistsError: 无法创建 ...\.dist\snapshot）。
+        _inner = dist / ".evolution"
+        if os.path.lexists(str(_inner)):
             try:
-                if _is_junction(_inner_evo):
-                    subprocess.run(["cmd", "/c", "rmdir", str(_inner_evo)],
+                if _is_junction(_inner):
+                    subprocess.run(["cmd", "/c", "rmdir", str(_inner)],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 else:
-                    _inner_evo.unlink()
+                    _inner.unlink()
             except Exception:
                 pass
+        # 凭据是硬链接，删除不影响真源，但先断开更稳妥
+        for _rel in SECRET_FILES:
+            _f = dist / _rel
+            if _f.exists():
+                try:
+                    _f.unlink()
+                except Exception:
+                    pass
         shutil.rmtree(dist, ignore_errors=True)
+        if os.path.lexists(str(dist)):
+            # 绝不使用 `rd /s /q`：它**会跟随 Junction 递归删除目标目录**。
+            # 快照里有指向真源 .evolution 的 Junction，rd /s 会把真源的
+            # 配置覆盖层、私有技能区、凭据一起删掉（实测已造成一次数据损失，
+            # 从备份恢复才救回来）。这里改为逐层剥离链接后再删。
+            for _sub in sorted(dist.rglob("*"), key=lambda x: -len(str(x))):
+                try:
+                    if _is_junction(_sub) or _sub.is_symlink():
+                        if _is_junction(_sub):
+                            subprocess.run(["cmd", "/c", "rmdir", str(_sub)],
+                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        else:
+                            _sub.unlink()
+                except Exception:
+                    pass
+            shutil.rmtree(dist, ignore_errors=True)
+        if os.path.lexists(str(dist)):
+            raise RuntimeError(
+                f"无法清理旧快照 {dist}——请手工删除后重试"
+                f"（注意：该目录内含指向 .evolution 的链接，不要用 rd /s，"
+                f"命令为 `rmdir \"{dist}\\.evolution\"` 后再删快照目录）"
+            )
     shutil.copytree(
         SKILL_ROOT, dist,
         ignore=shutil.ignore_patterns(
@@ -701,12 +769,21 @@ def main():
         rows0 = check_deployment(verbose=False)
         linked_roots = [r for r in rows0 if r["status"] == "linked"]
         broken_roots = [r for r in rows0 if r["status"] == "broken"]
-        copy_roots = [r for r in rows0 if r["status"] in ("stale", "ok", "leaked")]
-        # 有链接根或失效链接根都要重建快照：失效链接的唯一成因就是快照丢了，
-        # 重建后还需把链接重新指过去（link_agents 会在 --link 路径做）。
-        if (linked_roots or broken_roots) and args.mode != "copy":
+        # 链接形态下的 stale 也走重建快照：它意味着快照内容已与真源不一致
+        # （旧快照或被人改过），修法就是重建，不是去拷副本。
+        link_stale = []
+        for _r in rows0:
+            if _r["status"] != "stale":
+                continue
+            _t = Path(_r["path"])
+            if os.path.lexists(str(_t)) and (_t.is_symlink() or _is_junction(_t)):
+                link_stale.append(_r)
+        copy_roots = [r for r in rows0 if r["status"] in ("stale", "ok", "leaked")
+                      and r not in link_stale]
+        need_snapshot = bool(linked_roots or broken_roots or link_stale)
+        if need_snapshot and args.mode != "copy":
             dist = build_dist()
-            n = len(linked_roots) + len(broken_roots)
+            n = len(linked_roots) + len(broken_roots) + len(link_stale)
             print(f"[*] 已重建分发快照（{n} 个根通过链接共用这一份）")
             print(f"    {dist}")
         if broken_roots:
