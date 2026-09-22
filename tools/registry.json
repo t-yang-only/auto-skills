@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 32,
+  "tools_count": 33,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -148,6 +148,13 @@
       "description": "Handle code review feedback without defensiveness: read all of it first, classify each item (real issue / misread / partly right / style preference), fix what is real, explain what is not with evidence, and reply per item. Use when receiving review comments on a PR or diff, when a reviewer or user points out problems in your code, or when asked to address review findings. 触发场景：收到代码审查意见、PR review 反馈、用户指出代码问题、被要求处理 review 结论时。",
       "category": "verify",
       "path": "tools/receiving-code-review",
+      "has_skill_md": true
+    },
+    "requesting-code-review": {
+      "name": "requesting-code-review",
+      "description": "Ask for a review that can actually find something: hand over verifiable context instead of a summary, self-review the diff first, and keep the change small enough to read. Use before requesting review from a human or another agent, when opening a pull request, when a change is large or touches shared code, or when the user asks for review / 审查 / PR 请人看.",
+      "category": "verify",
+      "path": "tools/requesting-code-review",
       "has_skill_md": true
     },
     "security-best-practices": {
