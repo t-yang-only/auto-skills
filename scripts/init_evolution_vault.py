@@ -45,7 +45,7 @@ EVOLUTION_DIR = SKILL_ROOT / ".evolution"
 GITIGNORE_FILE = SKILL_ROOT / ".gitignore"
 
 DEFAULT_OBSIDIAN_CANDIDATES = [
-    Path("D:/ObsidianVault"),
+    Path.home() / "ObsidianVault",   # 通用家目录变体，不绑盘符
     Path.home() / "Documents" / "Obsidian Vault",
     Path.home() / "Obsidian",
 ]

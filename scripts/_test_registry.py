@@ -914,6 +914,32 @@ def main():
     except Exception as _e:
         check("新技能骨架含「完成判据」章节", False, "异常: %s" % _e)
 
+    # [15] 技能库不得携带特定机器的路径与私有标识
+    # 通用技能库会被分发到别人的机器上：作者本机的盘符路径、私有域名、内网 IP
+    # 对使用者是噪声，对原作者是泄露。用黑名单而不是「禁止所有盘符路径」——
+    # C:/path/to/my-agent-skill、D:\YourVault 这类中性占位符是合法的。
+    _LEAK_PAT = re.compile(
+        r"D:[/\\](LLM-Wiki|ObsidianVault|skills)\b"
+        r"|yangonly|223\.254\.147\.136|sois=ting|SCT[0-9]{4,}",
+        re.I)
+    try:
+        _leaks = []
+        for _p in sorted((pathlib.Path(ROOT) / "scripts").glob("*.py")):
+            # 跳过守卫自身：它的黑名单字面量必然包含这些词，扫自己会恒红。
+            # 这不是放宽——放宽守卫本身由「负向测试」段落保证（塞一条进去必须变红）。
+            if _p.name == "_test_registry.py":
+                continue
+            for _i, _line in enumerate(_p.read_text(encoding="utf-8-sig").split("\n"), 1):
+                _m = _LEAK_PAT.search(_line)
+                if _m:
+                    _leaks.append("%s:%d %s" % (_p.name, _i, _m.group(0)))
+        check("脚本里无特定机器路径 / 私有标识", not _leaks,
+              "全部干净" if not _leaks
+              else "命中 %d 处（通用技能库不该带作者本机路径或私有域名）: %s"
+                   % (len(_leaks), _leaks[:3]))
+    except Exception as _e:
+        check("脚本里无特定机器路径 / 私有标识", False, "异常: %s" % _e)
+
     return report()
 
 
