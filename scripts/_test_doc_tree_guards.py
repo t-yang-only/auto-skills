@@ -134,6 +134,21 @@ def _tamper_ledger_description(repo: Path) -> bool:
         return False
 
 
+def _break_count_anchor(repo: Path) -> bool:
+    """改掉 sync_skill_counts 的一条锚点前缀，模拟「文档措辞变了、RULES 没跟着改」。"""
+    f = repo / "scripts" / "sync_skill_counts.py"
+    try:
+        s = f.read_text(encoding="utf-8")
+        old = '("SKILL.md", "Bundles ", " top-tier")'
+        if old not in s:
+            return False
+        f.write_text(s.replace(old, '("SKILL.md", "BundlesZZ ", " top-tier")'),
+                     encoding="utf-8", newline="\n")
+        return True
+    except Exception:
+        return False
+
+
 CASES = [
     ("删 SKILL.md 树里 scripts/ 的一个子条目",
      lambda r: _drop_one_child(r, "SKILL.md", "scripts")),
@@ -147,6 +162,8 @@ CASES = [
      _drop_last_matrix_row),
     ("篡改 registry.json 的一条 description（模拟忘记重扫台账）",
      _tamper_ledger_description),
+    ("改掉计数同步器的一条锚点（模拟文档措辞变了、RULES 没跟着改）",
+     _break_count_anchor),
 ]
 
 

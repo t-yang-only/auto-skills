@@ -361,6 +361,25 @@ def main():
     except ImportError as e:
         check("台账 description 与 SKILL.md 一致", False, "无法导入 tool_onboarder: %s" % e)
 
+    # ---- 12. 计数同步器的每条锚点都必须真的命中 ----
+    # sync_skill_counts.py 靠「前缀 + 数字 + 后缀」定位要改的数字。改写文档时
+    # 一句话被拆散，锚点就静默失效 —— 技能数从此不再被同步，而脚本仍然报
+    # 「全部一致」，因为失效的锚点根本不在它的遍历结果里。这里逐条反向验证。
+    try:
+        import sync_skill_counts as _sc
+        _dead = []
+        for _rel, _pre, _suf in _sc.RULES:
+            _f = pathlib.Path(ROOT) / _rel
+            _body = _f.read_text(encoding="utf-8") if _f.exists() else ""
+            _pat = re.escape(_pre) + r"(\d{1,3})" + re.escape(_suf)
+            if not re.search(_pat, _body):
+                _dead.append(f"{_rel}: {_pre!r}+{_suf!r}")
+        check("计数同步器的锚点全部命中", not _dead,
+              "失效 %d/%d 条（改文档措辞后必须同步改 RULES）: %s"
+              % (len(_dead), len(_sc.RULES), "; ".join(_dead[:3])))
+    except ImportError as e:
+        check("计数同步器的锚点全部命中", False, "无法导入 sync_skill_counts: %s" % e)
+
     return report()
 
 
