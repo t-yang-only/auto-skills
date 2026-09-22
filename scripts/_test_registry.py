@@ -515,7 +515,17 @@ def main():
                     if not _f.is_file():
                         continue
                     _rel = _f.relative_to(_r).as_posix()
-                    if any(_x in _f.parts for _x in (".git", ".evolution", "__pycache__")):
+                    # 按**相对扫描根的首段**排除，而不是按绝对路径的任一段：
+                    # 快照自身就位于 <ROOT>/.dist/snapshot，用 parts 判断会把
+                    # 整个快照排除掉（实测踩过：SNAP 扫出 0 个文件）。
+                    if _rel.split("/")[0] in (".git", ".evolution", ".dist", "__pycache__"):
+                        continue
+                    if "__pycache__" in _f.parts:
+                        continue
+                    # agent_word/ 是 nm-skills 的运行时台账（根目录与 scripts/ 下
+                    # 各一份），有意不进快照 —— 把运行时产物倒回快照正是历史上
+                    # 踩过的故障（快照里出现 agent_word 与嵌套 .dist）。
+                    if "agent_word" in _f.parts:
                         continue
                     if _rel in _secret:
                         continue
@@ -540,10 +550,24 @@ def main():
                 # 「是链接 + 目标可达 + 能读到 SKILL.md + 凭据不可达」。
                 if _is_link:
                     _linked += 1
+                    _who = _base.parent.name or str(_base)
                     if not _t.exists():
-                        _stale.append("%s(链接失效，目标不存在)" % (_base.parent.name or str(_base)))
+                        _stale.append("%s(链接失效，目标不存在)" % _who)
                     elif not (_t / "SKILL.md").exists():
-                        _stale.append("%s(链接失效，读不到 SKILL.md)" % (_base.parent.name or str(_base)))
+                        _stale.append("%s(链接失效，读不到 SKILL.md)" % _who)
+                    else:
+                        # 链接可达 != 内容最新。链接只保证"六根看的是同一份快照"，
+                        # 而快照本身可能是旧的：实测 2026-09-23 改了仓库却没跑
+                        # --deploy，六个根全绿、实际跑的是落后一个提交的快照。
+                        # 因此链接形态也必须比内容（快照 vs 真源）。
+                        _snap = pathlib.Path(wizard_setup.SKILL_ROOT) / ".dist" / "snapshot"
+                        if _snap.exists():
+                            _sfm = _fmap(_snap)
+                            _smiss = sorted(set(_sf) - set(_sfm))
+                            _schg = sorted(k for k in set(_sf) & set(_sfm) if _sf[k] != _sfm[k])
+                            if _smiss or _schg:
+                                _stale.append("%s(快照陈旧: 缺%d/异%d，跑 --deploy)" % (
+                                    _who, len(_smiss), len(_schg)))
                     continue
                 _tf = _fmap(_t)
                 _miss = sorted(set(_sf) - set(_tf))
