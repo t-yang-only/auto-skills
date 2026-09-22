@@ -94,7 +94,7 @@ def load_config() -> Dict[str, Any]:
             except Exception:
                 pass
         else:
-            save_config(get_default_config())
+            save_config(get_default_config(), target="base")  # 首次初始化才写基础层
 
     base = get_default_config()
     if yaml and CONFIG_FILE.exists():
@@ -119,17 +119,36 @@ def load_config() -> Dict[str, Any]:
     return base
 
 
-def save_config(cfg: Dict[str, Any]) -> bool:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    if yaml:
-        try:
-            text = yaml.dump(cfg, allow_unicode=True, default_flow_style=False, sort_keys=False)
+def save_config(cfg: Dict[str, Any], target: str = "override") -> bool:
+    """保存配置。
+
+    target 决定写到哪一层，默认 "override"（覆盖层）：
+
+      "override" -> .evolution/config.yaml   （已 gitignore，本地私有状态）
+      "base"     -> config/config.yaml       （被 git 跟踪，必须永远是可公开的占位符）
+
+    为什么默认写覆盖层：load_config() 返回的是 base 与 override 的 deep_merge 结果，
+    里面含用户真实值（数据库 IP、私有仓库地址、本地路径、密码文件路径等）。
+    早期实现把合并结果整体写回基础层，于是「调用一次 mark_configured()」就会
+    把真实 IP 落进被 git 跟踪的 config/config.yaml —— 2026-09-22 实测发生过一次，
+    提交前被隐私闸门拦下。基础层只在首次初始化时写（见 load_config 的 else 分支）。
+
+    这条约束是硬性的：新增任何写配置的路径都必须走本函数，不要直接 write CONFIG_FILE。
+    """
+    if not yaml:
+        return False
+    try:
+        text = yaml.dump(cfg, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        if target == "base":
+            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             CONFIG_FILE.write_text(text, encoding="utf-8")
-            return True
-        except Exception as e:
-            print(f"[ERROR] 保存 config.yaml 失败: {e}")
-            return False
-    return False
+        else:
+            EVOLUTION_OVERRIDE.parent.mkdir(parents=True, exist_ok=True)
+            EVOLUTION_OVERRIDE.write_text(text, encoding="utf-8")
+        return True
+    except Exception as e:
+        print(f"[ERROR] 保存配置失败 (target={target}): {e}")
+        return False
 
 
 def is_configured() -> bool:
