@@ -356,25 +356,42 @@ python scripts/wizard_setup.py --check-deploy # 只检查（陈旧/失效/含凭
 | **链接（默认推荐）** | 六根共用一份快照 | 不可能参差；凭据只需守一处 | 改完仍要重建快照 |
 
 `--link` 建立链接形态，`--unlink` 退回副本形态，`--deploy` 对两者都成立
-（链接形态下=重建快照，副本形态下=重新拷贝）。
+（链接形态下=重建快照，副本形态下=重新拷贝），且**能自愈**：链接失效（快照
+被删）时会自动重建快照并重指链接，不需要手工清理。
 
-**为什么链接的是快照（`.evolution/dist`）而不是真源**：直链真源会让真源里的
-`config/db.password` 等凭据从每个 harness 路径变得可达（实测确认）。快照排除了凭据，
-链接路径下读不到 —— 这比副本方案更安全（副本要给六个根各留一份，链接只有一个地方需要守）。
+**快照位置**：`.dist/snapshot`（必须在 `.evolution` **之外**）。若放在
+`.evolution/dist`，而快照内部又有指回 `.evolution` 的链接，就会形成
+`dist/.evolution/dist/.evolution/...` 的无限自引用，copytree 直接 RecursionError。
+
+**快照内的三类成员**：
+
+| 成员 | 形态 | 为什么 |
+|---|---|---|
+| 普通文件 | 拷贝 | 就是要分发的内容 |
+| `.evolution` | Junction → 真源 | 让运行时状态（配置覆盖层/暂存/熔断/私有技能）六根共用一份，而不是各看各的 |
+| `config/db.password` 等三个凭据 | **硬链接** → 真源 | `db_sync.py` 用 `SKILL_ROOT/config/db.password` 解析密码，缺了落库整条链路失效 |
+
+关于凭据的判据：**看是否散布，不看是否存在**。硬链接只有一份数据，改真源即刻
+全生效、删除只需删真源；副本方案则是七份独立拷贝——实测出现过 `.claude` /
+`.cursor` 带着旧密码长期留在磁盘上。能读 harness 目录的人在两方案下都能读到，
+真正的边界是文件权限（0600）。
 
 **Windows 上的关键事实**：目录符号链接需要管理员权限（即使开发者模式已开，
-实测报 `Administrator privilege required`）；**Junction 免管理员可用**，
-本机既有先例（`.dsh/skills/ppt-skills`）。
+实测报 `Administrator privilege required`）；**Junction 与文件硬链接都免管理员可用**
+（本机既有先例：`.dsh/skills/ppt-skills` 就是 Junction）。
 
-### 部署校验的三条口径（都是实测踩出来的）
+### 部署校验的四条口径（都是实测踩出来的）
 
 - **不能把 mtime 算进指纹**：源与副本的修改时间天然不同（robocopy 会重写时间戳），
   用它比较会让每个根永远显示「陈旧」，校验器等于坏掉。
-- **必须排除凭据文件**：副本里没有 `config/db.password` 是**正确状态**，
+- **必须排除凭据文件**：副本形态下，副本里没有 `config/db.password` 是**正确状态**，
   拿「源有副本没有」当陈旧是误判。
 - **判「有没有部署」不能用 `exists()`**：失效链接的 `exists()` 返回 `False`，
   整根会被静默跳过 —— 实测出现过「快照被移走、六个链接全失效，断言却报全绿」的假阴性。
   必须用 `os.path.lexists()`。
+- **链接形态的凭据判据是 inode 相同，不是路径存在**：写成「存在即失败」会让每次
+  建链接都误判并回退到 robocopy，而 robocopy 的目标正是快照目录，把 `agent_word/`
+  等运行时产物又倒回快照（实测：快照 4028 文件、含 agent_word 与嵌套 `.dist`）。
 
 凭据清理（`purge_deployed_secrets()`）必须**独立于本轮连接了哪些根**：
 实测过一次漏网 —— `.claude` 与 `.cursor` 两个根的副本更早（早于首次修复），
