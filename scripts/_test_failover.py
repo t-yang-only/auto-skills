@@ -63,6 +63,25 @@ def prep():
     if TESTROOT.exists():
         shutil.rmtree(TESTROOT, ignore_errors=True)
     shutil.copytree(SRC, TESTROOT, ignore=shutil.ignore_patterns(".git", "__pycache__"))
+    # .evolution 需要单独处理：真源里它可能是 Junction（分发快照会把它指回
+    # 真源），而 copytree 不跟随 Junction，隔离副本里就得不到 config.yaml
+    # 与凭据（实测报 FileNotFoundError: .../.evolution/config.yaml）。
+    # 测试要动的是数据库 host 与 spool 状态，这些都在 .evolution 下，
+    # 所以这里显式把它做成**独立副本**（不是链接），避免测试写到真源。
+    _src_evo = SRC / ".evolution"
+    _dst_evo = TESTROOT / ".evolution"
+    if _src_evo.exists() and not _dst_evo.exists():
+        shutil.copytree(_src_evo, _dst_evo, symlinks=False,
+                        ignore=shutil.ignore_patterns("__pycache__", "dist"))
+    # 凭据也在 config/ 下，同样可能是指向真源的硬链接——隔离副本里必须是
+    # 独立文件，否则测试改配置会波及真源
+    for _rel in ("config/db.password", "config/gateway.token", "config/gateway.url"):
+        _s, _d = SRC / _rel, TESTROOT / _rel
+        if _s.exists():
+            _d.parent.mkdir(parents=True, exist_ok=True)
+            if _d.exists():
+                _d.unlink()
+            shutil.copy2(_s, _d)
     for d in ("db_spool",):
         p = TESTROOT / ".evolution" / d
         if p.exists():
