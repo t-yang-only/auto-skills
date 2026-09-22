@@ -4,7 +4,7 @@
 pull_persona_traits.py — 从知识库自适应拉取女友人格定义与温情特性的同步模块
 ============================================================================
 功能：
-1. 检查配置中的知识库端点或本地路径 (如 D:/ObsidianVault 或 https://your-wiki.example.com)；
+1. 检查配置中的知识库端点或本地路径 (如 D:/YourVault 或 https://your-wiki.example.com)；
 2. 尝试从知识库中检索与“女友/人格/伴侣/沟通习惯”相关的定义与个性化偏好；
 3. 将特性萃取沉淀到本地 `.evolution/profile/persona_girlfriend.json`；
 4. 保证在开启女友模式时，AI 表达具有人情味与同理心，同时保持代码与工程的绝对严谨。
@@ -20,6 +20,32 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = SCRIPT_DIR.parent
 PROFILE_DIR = SKILL_ROOT / ".evolution" / "profile"
 TRAITS_FILE = PROFILE_DIR / "persona_girlfriend.json"
+SYNC_CFG = SKILL_ROOT / ".evolution" / "obsidian_sync" / "config.json"
+
+# 知识库路径一律动态解析，绝不硬编码某个人的磁盘布局。
+# 顺序：显式传入 > .evolution/obsidian_sync/config.json 的 vault_path > 常见候选目录。
+DEFAULT_CANDIDATES = [
+    Path.home() / "Documents" / "Obsidian Vault",
+    Path.home() / "Obsidian",
+    Path.home() / "Documents" / "ObsidianVault",
+]
+
+
+def resolve_kb_path(explicit: str = "") -> Path | None:
+    """按 显式传入 > 已保存配置 > 候选目录 的顺序解析本地知识库路径；找不到返回 None。"""
+    if explicit:
+        return Path(explicit)
+    try:
+        if SYNC_CFG.exists():
+            saved = str(json.loads(SYNC_CFG.read_text(encoding="utf-8")).get("vault_path") or "").strip()
+            if saved:
+                return Path(saved)
+    except Exception:
+        pass
+    for cand in DEFAULT_CANDIDATES:
+        if cand.is_dir():
+            return cand
+    return None
 
 
 def get_default_girlfriend_traits() -> Dict[str, Any]:
@@ -51,8 +77,11 @@ def pull_and_sync_traits(kb_path_or_url: str = "", token: str = "") -> Dict[str,
     traits = get_default_girlfriend_traits()
 
     # 1. 尝试从本地知识库检索
-    local_kb = Path(kb_path_or_url) if kb_path_or_url else Path("D:/ObsidianVault")
-    if local_kb.exists() and local_kb.is_dir():
+    local_kb = resolve_kb_path(kb_path_or_url)
+    if local_kb is None:
+        print("[*] 未配置本地知识库路径，本次只使用内置人格基线。")
+        print("    设置方法: python scripts/obsidian_bridge.py --set-vault '<你的知识库路径>'")
+    elif local_kb.exists() and local_kb.is_dir():
         print(f"[*] 正在从本地知识库 [{local_kb}] 检索人格定义与沟通偏好...")
         # 搜索潜在的相关笔记
         matched_notes = []
