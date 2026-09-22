@@ -392,6 +392,65 @@ def main():
     except ImportError as e:
         check("计数同步器的锚点全部命中", False, "无法导入 sync_skill_counts: %s" % e)
 
+    # ---- [13] 部署同步：各 harness 根下的副本必须与仓库一致 ----
+    # 存在的理由：connect_agents 只在首次向导时跑一次，仓库之后每次提交
+    # 都不会再分发。实测 2026-09-22 六个根全部落后一个功能（缺
+    # discover_skill_roots 动态根发现），而且没有任何机制会报出来。
+    # 判据只看「共有文件的内容」——不能算 mtime（源与副本时间天然不同），
+    # 也不能把「副本缺凭据」当差异（那是部署的正确行为）。
+    #
+    # 注意：本段只在**真实仓库根**上生效。_test_doc_tree_guards.py 会把仓库
+    # 复制到临时目录、只破坏文档树来验证断言有效性，而部署状态是"机器事实"、
+    # 与那份临时副本无关——在沙箱里也断言会导致噪声用例误报（实测踩过）。
+    try:
+        import wizard_setup
+        # 判定是否跑在隔离副本里：_test_doc_tree_guards.py 会声明该环境变量。
+        # 部署状态是「这台机器的事实」，与那份临时副本无关——在沙箱里断言
+        # 只会造成噪声用例误报（实测踩过）。
+        _in_sandbox = os.environ.get("AUTOSKILLS_SANDBOX") == "1"
+        if _in_sandbox:
+            check("部署同步检查（沙箱内跳过，仅真实仓库根生效）", True, "")
+        else:
+            _secret = set(getattr(wizard_setup, "SECRET_FILES", ()))
+
+            def _fmap(d):
+                import hashlib as _hl
+                _o = {}
+                _r = pathlib.Path(d).resolve()
+                for _f in _r.rglob("*"):
+                    if not _f.is_file():
+                        continue
+                    _rel = _f.relative_to(_r).as_posix()
+                    if any(_x in _f.parts for _x in (".git", ".evolution", "__pycache__")):
+                        continue
+                    if _rel in _secret:
+                        continue
+                    _o[_rel] = _hl.sha256(_f.read_bytes()).hexdigest()
+                return _o
+
+            _sf = _fmap(ROOT)
+            _stale, _leaked, _checked = [], [], 0
+            for _name, _base in wizard_setup.KNOWN_AGENT_PATHS:
+                _t = _base / "auto-skills"
+                if not _t.exists():
+                    continue
+                _checked += 1
+                _tf = _fmap(_t)
+                _miss = sorted(set(_sf) - set(_tf))
+                _chg = sorted(k for k in set(_sf) & set(_tf) if _sf[k] != _tf[k])
+                if _miss or _chg:
+                    _stale.append("%s(缺%d/异%d)" % (_base.parent.name or str(_base), len(_miss), len(_chg)))
+                _lk = [x for x in _secret if (_t / x).exists()]
+                if _lk:
+                    _leaked.append("%s=%s" % (_base.parent.name or str(_base), _lk))
+            # 一个根都没部署时不算失败（可能没装任何 harness），但必须报出来
+            check("部署副本与仓库同步（已检查 %d 个根）" % _checked, not _stale,
+                  "; ".join(_stale[:3]) if _stale else "")
+            check("分发副本无本地凭据残留", not _leaked,
+                  "; ".join(_leaked[:3]) if _leaked else "")
+    except Exception as e:
+        check("部署副本与仓库同步", False, "无法导入 wizard_setup: %s" % e)
+
     return report()
 
 

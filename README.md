@@ -153,9 +153,19 @@ python scripts/auto_router.py log --limit 15
 # 启动配置向导
 python scripts/auto_router.py setup
 
-# 扫描并连接本机所有 Agent 环境
+# 扫描并连接本机所有 Agent 环境（首次向导时自动执行）
 python scripts/auto_router.py connect-agents
+
+# 仓库更新后重新分发到各 Agent 技能目录（改了本仓库必须跑这条）
+python scripts/wizard_setup.py --deploy
+
+# 只检查分发副本是否与仓库同步（陈旧或残留凭据时 exit 1）
+python scripts/wizard_setup.py --check-deploy
 ```
+
+> **为什么需要 `--deploy`**：首次向导只执行一次，仓库之后的每次提交都不会自动分发。
+> 实测过一次：六个 Agent 根（`.codex` / `.agents` / `.dsh` / `.workbuddy-ai` / `.claude` / `.cursor`）
+> 的副本全部落后一个功能，每个 agent 都在跑旧代码，而没有任何提示。
 
 ---
 

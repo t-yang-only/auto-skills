@@ -74,6 +74,138 @@ def scan_local_agents() -> List[Dict[str, Any]]:
     return results
 
 
+# 本地凭据：绝不允许出现在任何分发副本里。
+# 实测踩过两次：第一次是 robocopy 未排除 config/ 导致 4 个根各 3 个副本；
+# 第二次是 .claude 与 .cursor 两个根因副本更早（早于首次修复）而清理循环
+# 只覆盖"本轮连接成功"的根，所以那两处一直带着真实凭据留在磁盘上。
+# 因此清理必须独立成全量巡检，不依赖本轮连了哪些根。
+SECRET_FILES = ("config/db.password", "config/gateway.token", "config/gateway.url")
+
+
+def purge_deployed_secrets(verbose: bool = True) -> List[str]:
+    """全量巡检所有已知 harness 根，清除分发副本里的本地凭据。
+
+    与 connect_agents 解耦：即使某根本轮不参与同步（例如路径不存在、
+    被 agent_names 过滤、或同步失败），只要它下面已有旧副本就必须清理。
+    """
+    removed = []
+    for name, p in KNOWN_AGENT_PATHS:
+        target = p / "auto-skills"
+        if not target.exists():
+            continue
+        for rel in SECRET_FILES:
+            f = target / rel
+            if not f.exists():
+                continue
+            try:
+                f.unlink()
+                removed.append(f"{name}:{rel}")
+                if verbose:
+                    print(f"  [i] 已清除历史残留凭据: {p.name}/auto-skills/{rel}")
+            except Exception as e:
+                if verbose:
+                    print(f"  [!] 清除失败 {f}: {e}")
+    return removed
+
+
+def _file_map(d: Path) -> Dict[str, str]:
+    """目录内容映射 {相对路径: sha256}，排除 .git/.evolution/__pycache__ 与凭据文件。"""
+    import hashlib
+    out: Dict[str, str] = {}
+    root = d.resolve()
+    for f in sorted(root.rglob("*")):
+        if not f.is_file():
+            continue
+        rel = f.relative_to(root).as_posix()
+        if any(x in f.parts for x in (".git", ".evolution", "__pycache__")):
+            continue
+        if rel in SECRET_FILES:
+            continue  # 凭据本就不该分发，不参与比对
+        try:
+            out[rel] = hashlib.sha256(f.read_bytes()).hexdigest()
+        except OSError:
+            out[rel] = "<unreadable>"
+    return out
+
+
+def _dir_signature(d: Path) -> str:
+    """目录内容指纹（路径 + 内容哈希），用于快速判断部署副本是否陈旧。
+
+    两条必须遵守的口径：
+    ① **绝不能把 mtime 算进指纹**——源与副本的修改时间天然不同（robocopy 会
+       重写时间戳），用它比较会让每个根永远显示"陈旧"，校验器等于坏掉；
+    ② **必须排除凭据文件**——副本里没有 config/db.password 是**正确状态**
+       （部署时被 /XF 与巡检主动排除），拿"源有副本没有"当陈旧是误判。
+    """
+    import hashlib
+    h = hashlib.sha256()
+    for rel, digest in _file_map(d).items():
+        h.update(f"{rel}|{digest}\n".encode("utf-8", "replace"))
+    return h.hexdigest()[:16]
+
+
+def check_deployment(verbose: bool = True) -> List[Dict[str, Any]]:
+    """检查各 harness 根下的 auto-skills 副本是否与源同步。
+
+    存在的理由：connect_agents 只在首次向导时跑一次，仓库之后每次提交
+    都不会再分发——实测 6 个副本全部落后一个功能（缺 discover_skill_roots
+    动态根发现），而没有任何机制会报出来。
+    """
+    src_files = _file_map(SKILL_ROOT)
+    src_sig = _dir_signature(SKILL_ROOT)
+    rows = []
+    for name, p in KNOWN_AGENT_PATHS:
+        target = p / "auto-skills"
+        if not target.exists():
+            rows.append({"name": name, "path": str(target), "status": "missing"})
+            continue
+        leaked = [rel for rel in SECRET_FILES if (target / rel).exists()]
+        tgt_files = _file_map(target)
+        missing = sorted(set(src_files) - set(tgt_files))
+        extra = sorted(set(tgt_files) - set(src_files))
+        changed = sorted(k for k in set(src_files) & set(tgt_files) if src_files[k] != tgt_files[k])
+        # 凭据残留优先级最高：内容再同步，留了真实凭据也是故障
+        status = "leaked" if leaked else ("ok" if not (missing or extra or changed) else "stale")
+        rows.append({"name": name, "path": str(target), "status": status,
+                     "src_sig": src_sig, "tgt_sig": _dir_signature(target),
+                     "leaked": leaked, "missing": missing, "extra": extra, "changed": changed})
+    if verbose:
+        icon = {"ok": "🟢 同步", "stale": "🟡 陈旧", "leaked": "🔴 含凭据", "missing": "⚪ 未部署"}
+        print(f"\n{'目标':<26} 状态")
+        print("-" * 62)
+        for r in rows:
+            detail = ""
+            if r["status"] == "stale":
+                parts = []
+                if r.get("missing"):
+                    parts.append(f"缺 {len(r['missing'])}")
+                if r.get("extra"):
+                    parts.append(f"多 {len(r['extra'])}")
+                if r.get("changed"):
+                    parts.append(f"异 {len(r['changed'])}")
+                detail = "  " + " / ".join(parts)
+                sample = (r.get("changed") or r.get("missing") or [])[:2]
+                if sample:
+                    detail += f"  如 {', '.join(sample)}"
+            elif r.get("leaked"):
+                detail = f"  泄漏={r['leaked']}"
+            print(f"  {r['name']:<24} {icon[r['status']]}{detail}")
+        bad = [r for r in rows if r["status"] in ("stale", "leaked")]
+        if bad:
+            print(f"\n[i] 有 {len(bad)} 个根需要重新部署：跑 `python scripts/wizard_setup.py --deploy`")
+        else:
+            print("\n[OK] 全部根与仓库同步，且无凭据残留")
+    return rows
+
+
+def deploy_agents(agent_names: Optional[List[str]] = None) -> Dict[str, Any]:
+    """把仓库当前内容重新分发到各 harness 技能目录（可重复执行的部署入口）。"""
+    result = connect_agents(agent_names=agent_names)
+    # 部署之后再全量巡检一次凭据：robocopy 的 /XF 万一失效也不会留下真实凭据
+    purged = purge_deployed_secrets()
+    return {"connected": result, "purged": purged}
+
+
 def connect_agents(agent_names: Optional[List[str]] = None) -> List[str]:
     """建立到扫描到的 Agent 目录的连接与同步"""
     connected = []
@@ -97,15 +229,6 @@ def connect_agents(agent_names: Optional[List[str]] = None) -> List[str]:
                 f'/R:1 /W:1 /NP /NFL /NDL'
             )
             subprocess.run(["powershell", "-Command", cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            # 双保险：即使 robocopy 的过滤没生效（或目标里本来就有旧副本），也把凭据删掉
-            for _secret in ("config/db.password", "config/gateway.token", "config/gateway.url"):
-                _f = Path(target_link) / _secret
-                if _f.exists():
-                    try:
-                        _f.unlink()
-                        print(f"  [i] 已移除同步过去的本地凭据: {_secret}")
-                    except Exception:
-                        pass
             connected.append(name)
             print(f"  [+] 成功连接至: {p}")
         except Exception as e:
@@ -209,6 +332,10 @@ def main():
     parser.add_argument("--status", action="store_true", help="查看当前配置与 Agent 连接状态")
     parser.add_argument("--auto", action="store_true", help="自动以推荐安全标准完成首次配置")
     parser.add_argument("--connect-agents", action="store_true", help="立即扫描并建立到所有 Agent 环境的连接")
+    parser.add_argument("--deploy", action="store_true",
+                        help="重新分发仓库当前内容到所有 Agent 技能目录（仓库更新后跑这个）")
+    parser.add_argument("--check-deploy", action="store_true",
+                        help="检查各 Agent 技能目录的副本是否与仓库同步（含凭据残留巡检）")
     parser.add_argument("--always-nm", choices=["true", "false"], help="设置是否永远默认启用 nm-skills 台账")
     parser.add_argument("--gf-mode", choices=["true", "false"], help="设置是否默认开启女友人格")
     parser.add_argument("--set-private-remote", help="设置个人私有 Git 仓库 URL")
@@ -221,7 +348,22 @@ def main():
 
     if args.connect_agents:
         connect_agents()
+        # 连接之后必须全量巡检凭据：清理不能只覆盖本轮连接的根，
+        # 否则更早版本留下的副本会一直带着真实凭据留在磁盘上。
+        purge_deployed_secrets()
         sys.exit(0)
+
+    if args.check_deploy:
+        rows = check_deployment()
+        bad = [r for r in rows if r["status"] in ("stale", "leaked")]
+        sys.exit(1 if bad else 0)
+
+    if args.deploy:
+        out = deploy_agents()
+        print(f"\n[OK] 已重新分发到 {len(out['connected'])} 个根；清除凭据 {len(out['purged'])} 个")
+        rows = check_deployment()
+        bad = [r for r in rows if r["status"] in ("stale", "leaked")]
+        sys.exit(1 if bad else 0)
 
     # 快捷配置单个字段
     if args.always_nm:
