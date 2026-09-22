@@ -87,9 +87,25 @@ def connect_agents(agent_names: Optional[List[str]] = None) -> List[str]:
         target_link = p / "auto-skills"
         print(f"[*] 正在为 【{name}】 建立 auto-skills 连接...")
         try:
-            # 在 Windows 上优先使用 robocopy 同步以规避特权问题并保持原生稳定
-            cmd = f'robocopy "{auto_src}" "{target_link}" /MIR /XD .git .evolution /R:1 /W:1 /NP /NFL /NDL'
+            # 在 Windows 上优先使用 robocopy 同步以规避特权问题并保持原生稳定。
+            # 关键：必须排除本地凭据，否则数据库密码与网关令牌会被复制进
+            # 各个 AI 工具的技能目录（实测踩过：config/db.password 与
+            # config/gateway.token 被同步到了 ~/.dsh/skills/auto-skills）。
+            cmd = (
+                f'robocopy "{auto_src}" "{target_link}" /MIR '
+                f'/XD .git .evolution /XF db.password gateway.token gateway.url '
+                f'/R:1 /W:1 /NP /NFL /NDL'
+            )
             subprocess.run(["powershell", "-Command", cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # 双保险：即使 robocopy 的过滤没生效（或目标里本来就有旧副本），也把凭据删掉
+            for _secret in ("config/db.password", "config/gateway.token", "config/gateway.url"):
+                _f = Path(target_link) / _secret
+                if _f.exists():
+                    try:
+                        _f.unlink()
+                        print(f"  [i] 已移除同步过去的本地凭据: {_secret}")
+                    except Exception:
+                        pass
             connected.append(name)
             print(f"  [+] 成功连接至: {p}")
         except Exception as e:
