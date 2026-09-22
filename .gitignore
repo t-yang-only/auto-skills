@@ -26,6 +26,9 @@ Thumbs.db
 # Private Evolution Vault (双轨隔离区：存放用户私人习惯、私有凭据、自孵化技能与Obsidian同步数据)
 # 确保上游公开库拉取更新 (git pull) 时绝对不覆盖、不冲突、不泄露用户的私人进化内容！
 .evolution/
+# 分发快照（六根链接共用；含指回 .evolution 的链接，绝不能提交）
+.dist/
+
 *.private.*
 .sendkey
 

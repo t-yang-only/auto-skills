@@ -464,30 +464,60 @@ def main():
                   "; ".join(_stale[:3]) if _stale else "")
             check("分发副本无本地凭据残留", not _leaked,
                   "; ".join(_leaked[:3]) if _leaked else "")
-            # 链接形态必须真的读不到凭据（这是选链接方案的前提）
-            _link_leak = []
+            # 链接形态的凭据判据：不是"读不到"（运行必需，db_sync 用
+            # SKILL_ROOT/config/db.password 解析密码），而是**不与真源散开**
+            # ——快照里的凭据必须是硬链接（同一份数据），不能是独立拷贝。
+            # 拷贝会在七处散布同一份密码，改真源后副本仍是旧值：这正是
+            # 实测踩过的故障（.claude / .cursor 带着旧凭据长期留在磁盘上）。
+            _link_split = []
             for _name, _base in wizard_setup.KNOWN_AGENT_PATHS:
                 _t = _base / "auto-skills"
-                if os.path.lexists(str(_t)) and (_t.is_symlink() or wizard_setup._is_junction(_t)):
-                    _l = [x for x in _secret if (_t / x).exists()]
-                    if _l:
-                        _link_leak.append("%s=%s" % (_base.parent.name or str(_base), _l))
-            check("链接形态下凭据不可达", not _link_leak,
-                  "; ".join(_link_leak[:3]) if _link_leak else "")
-            # 分发快照不得含本地运行时产物：agent_word/ 是本机多 Agent 台账
-            # （已被 .gitignore 排除、不属仓库内容），分发出去等于把本机
-            # 任务记录与文件清单暴露给所有 harness，且各 harness 会看到
-            # 同一份"别人的台账"而误判任务归属。实测发现它被拷进过快照。
+                if not (os.path.lexists(str(_t)) and
+                        (_t.is_symlink() or wizard_setup._is_junction(_t))):
+                    continue
+                for _rel in _secret:
+                    _f = _t / _rel
+                    if not _f.exists():
+                        continue
+                    _orig = pathlib.Path(ROOT) / _rel
+                    try:
+                        if _orig.exists() and _f.stat().st_ino != _orig.stat().st_ino:
+                            _link_split.append("%s:%s(独立拷贝)" % (_base.parent.name or str(_base), _rel))
+                    except OSError:
+                        pass
+            check("链接形态的凭据与真源同一份（非散布拷贝）", not _link_split,
+                  "; ".join(_link_split[:3]) if _link_split else "")
+            # 分发快照不得含**拷贝形式**的本地运行时产物。
+            # 注意不能一律判"存在即失败"：.evolution 与三个凭据现在是有意
+            # 放进去的**链接**（.evolution 用 Junction 指回真源让运行时状态
+            # 六根共用；凭据用硬链接让运行能读到且不散布）。判据是
+            # 「不以链接形式存在」才算失败。
             import wizard_setup as _ws
             if _linked:
-                _dist = _ws.SKILL_ROOT / ".evolution" / "dist"
+                _dist = _ws.SKILL_ROOT / ".dist" / "snapshot"
                 _bad_dist = []
-                for _junk in ("agent_word", "config/db.password",
-                              "config/gateway.token", "config/gateway.url",
-                              ".git", ".evolution"):
-                    if (_dist / _junk).exists():
-                        _bad_dist.append(_junk)
-                check("分发快照不含本地运行时产物", not _bad_dist,
+                # agent_word/ 必须是彻底不在（它是本地台账，没有任何运行
+                # 理由让 harness 看到，链接也不行）
+                if (_dist / "agent_word").exists():
+                    _bad_dist.append("agent_word")
+                if (_dist / ".git").exists():
+                    _bad_dist.append(".git")
+                # .evolution 必须以链接形式指回真源
+                _devo = _dist / ".evolution"
+                if _devo.exists() and not _ws._is_junction(_devo):
+                    _bad_dist.append(".evolution(非链接)")
+                # 凭据必须以硬链接形式存在（同一份数据）
+                for _rel in _secret:
+                    _f = _dist / _rel
+                    if not _f.exists():
+                        continue
+                    _o = pathlib.Path(ROOT) / _rel
+                    try:
+                        if not _o.exists() or _f.stat().st_ino != _o.stat().st_ino:
+                            _bad_dist.append("%s(独立拷贝)" % _rel)
+                    except OSError:
+                        _bad_dist.append("%s(无法比对)" % _rel)
+                check("分发快照不含拷贝形式的本地运行时产物", not _bad_dist,
                       "快照里出现: %s（跑 wizard_setup.py --deploy 重建）" % _bad_dist)
     except Exception as e:
         check("部署副本与仓库同步", False, "无法导入 wizard_setup: %s" % e)
