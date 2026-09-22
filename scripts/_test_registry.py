@@ -28,6 +28,61 @@ REGISTRY = os.path.join(TOOLS, "registry.json")
 
 PASS, FAIL = [], []
 
+# ---- description 触发条件词表（模块级共享，不要另写第二份）----
+# description 是 agent 判断「何时加载本技能」的唯一依据：只写「能做什么」而不写
+# 「什么时候用」，技能在真正需要时就不会被想起来。
+#
+# 2026-09-23 教训：这套词表被临时重写过两次，两次都漏了写法，安静地误报——
+#   第一次漏 "before" / "whenever" / "Use for"，误报 4 个；
+#   第二次（同一个会话里）又漏，误报 6 个（codex-project-closeout 靠 whenever、
+#   markdown-viewer 靠 Use for、no-negative-echo 靠 Use after、requesting-code-review
+#   与 writing-plans 靠 Use before、talk-like-girlfriend 靠 Activate when 命中）。
+# 任何需要判断「description 有没有触发条件」的脚本都必须导入本常量。
+# 漏词的扫描器不会报错，它只会给出一个看起来很正常的假结果。
+TRIGGER_RE = re.compile(
+    r"Use when|Use this when|Use it when|Use (this )?(after|before|for|on|during|to)\b|"
+    r"Triggers|Trigger only|Activate when|Invoke when|Load when|Consider using|"
+    r"whenever|when the user|when you|when a |when an |when there|"
+    r"MUST use this|must use|"
+    r"当|触发|适用于|使用本技能",
+    re.I,
+)
+
+# 弱表述：只说明「这个技能能干什么」，单独出现不足以让 agent 在正确时机加载它。
+# 注意裸「用于」不在强词表里——「可以用于」是弱表述，把它当强触发等于放过 undertrigger。
+WEAK_RE = re.compile(
+    r"can be used|may be used|helps with|useful for|可以用于|可以用来|适合用于", re.I
+)
+
+# description 太短通常意味着没写清楚「什么时候用」。官方上限是 1024。
+MIN_DESC_LEN = 60
+
+# 词表自检样本：每个已知写法各一条，任一不命中就说明词表被改窄了。
+# 没有这段，删掉一个词只会让检查静默放宽——假绿和真绿长得一模一样。
+TRIGGER_SAMPLES = [
+    "Use when the task requires X",
+    "Use this when the user asks",
+    "Use it when handling conflicts",
+    "Use after corrections or discarded proposals",
+    "Use before starting multi-step work",
+    "Use for Mermaid-like diagram requests",
+    "Triggers on grill me",
+    "Trigger only for supported languages",
+    "Activate when the user wants girlfriend mode",
+    "Record a handoff whenever a task completes",
+    "Use when the user asks to debug",
+    "when you need to reach a real browser",
+    "当用户要 find/install skill 时使用",
+    "触发场景：用户询问如何在 CLI 调用",
+    "适用于批量执行文档里的命令",
+    "使用本技能处理安全审计",
+]
+WEAK_SAMPLES = [
+    "can be used to format output",
+    "helps with debugging",
+    "可以用于整理素材",
+]
+
 
 def check(name, ok, detail=""):
     (PASS if ok else FAIL).append((name, detail))
@@ -106,10 +161,7 @@ def main():
     # description 是 agent 判断「何时加载本技能」的唯一依据；只写「能力是什么」
     # 而不写「什么时候用」，会让技能在真正需要时想不起来被加载。
     print("\n[3c] description 含触发条件线索")
-    TRIG = re.compile(r"Use when|Use (this )?(after|before|for|on|during|to)|Triggers|Trigger only|"
-                      r"Activate when|whenever|when the user|MUST use this|"
-                      r"当|触发|适用于|用于", re.I)
-    notrig = [k for k, v in tools.items() if not TRIG.search(v.get("description", ""))]
+    notrig = [k for k, v in tools.items() if not TRIGGER_RE.search(v.get("description", ""))]
     check("每个 description 都有触发条件", not notrig,
           "缺触发: %s" % (", ".join(notrig) if notrig else "无"))
 
@@ -799,6 +851,31 @@ def main():
           ("超限: %s" % _long_desc) if _long_desc else "")
     check("无游离非标准键（须进 metadata 或 x- 前缀）", not _nonstd,
           ("发现: %s" % _nonstd) if _nonstd else "")
+
+    # ---- 12. description 触发质量（长度下限 + 弱表述 + 词表自检）----
+    # [3c] 只问「有没有触发条件」；这一段问「写得够不够」，以及「词表本身还在不在」。
+    print("\n[12] description 触发质量与词表自检")
+    _too_short = [k for k, v in tools.items() if len(v.get("description", "")) < MIN_DESC_LEN]
+    check("description 长度 >= %d 字符" % MIN_DESC_LEN, not _too_short,
+          ("过短: %s" % ", ".join(
+              "%s(%d)" % (k, len(tools[k].get("description", ""))) for k in _too_short))
+          if _too_short else "")
+
+    _weak_only = [k for k, v in tools.items()
+                  if WEAK_RE.search(v.get("description", ""))
+                  and not TRIGGER_RE.search(v.get("description", ""))]
+    check("无「只有弱表述、没有触发条件」的 description", not _weak_only,
+          ("弱表述: %s" % ", ".join(_weak_only)) if _weak_only else "")
+
+    _miss_trig = [s for s in TRIGGER_SAMPLES if not TRIGGER_RE.search(s)]
+    check("触发词表覆盖全部已知写法（%d 条样本）" % len(TRIGGER_SAMPLES), not _miss_trig,
+          ("词表已漏: %s" % _miss_trig) if _miss_trig else "%d/%d 命中"
+          % (len(TRIGGER_SAMPLES), len(TRIGGER_SAMPLES)))
+
+    _miss_weak = [s for s in WEAK_SAMPLES if not WEAK_RE.search(s)]
+    check("弱表述词表覆盖全部已知写法（%d 条样本）" % len(WEAK_SAMPLES), not _miss_weak,
+          ("词表已漏: %s" % _miss_weak) if _miss_weak else "%d/%d 命中"
+          % (len(WEAK_SAMPLES), len(WEAK_SAMPLES)))
 
     return report()
 
