@@ -313,7 +313,10 @@ def get_custom_private_members() -> List[Tuple[str, str, str, str, str, str]]:
             kw = re.escape(name)
             res.append((name, f"【私有技能】{label}", cat, "match", kw, cat))
         return res
-    except Exception:
+    except Exception as _e:
+        # 静默返回空列表会让路由看不到任何私有技能，而使用者只会发现「私有技能没被匹配」——
+        # 必须留痕，否则又是一个「没报错 = 正常」的假象。
+        _db_note("custom_members", _e)
         return []
 
 
