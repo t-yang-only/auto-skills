@@ -96,7 +96,7 @@ def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
 
 def infer_category(name: str) -> str:
     name_lower = name.lower()
-    if any(w in name_lower for w in ("test", "debug", "ci", "review", "security", "pentest", "playwright", "verif", "audit")):
+    if any(w in name_lower for w in ("test", "debug", "ci", "review", "security", "pentest", "playwright", "verif", "audit", "diagnos")):
         return "verify"
     elif any(w in name_lower for w in ("find", "discover", "skillnet")):
         return "acquire"

@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 28,
+  "tools_count": 30,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -57,6 +57,13 @@
       "description": "Record a concise, safe Codex Memory Hub handoff whenever an engineering task, deployment, fix, or investigation is complete.",
       "category": "handoff",
       "path": "tools/codex-project-closeout",
+      "has_skill_md": true
+    },
+    "diagnosing-skills": {
+      "name": "diagnosing-skills",
+      "description": "Diagnose why a session or skill misbehaved: a skill that should have fired but did not, an agent that ignored its plan, repeated work, or burned far more tokens than expected. Reads the session trail and the auto-skills trace tables, reports with line-level evidence, and can package a scrubbed bundle. Use when asked to figure out what went wrong, why a skill did not trigger, why nothing got written to the database, or when a session feels off. 触发场景：会话/技能表现异常、该触发的技能没触发、落库没数据、任务重复、token 异常超支、被要求排查「刚才那次为什么不对」时。",
+      "category": "verify",
+      "path": "tools/diagnosing-skills",
       "has_skill_md": true
     },
     "find-skills": {
@@ -127,6 +134,13 @@
       "description": "Forces the laziest solution that actually works, simplest, shortest, most minimal. Channels a senior dev who has seen everything: question whether the task needs to exist at all (YAGNI), reach for the standard library before custom code, native platform features before dependencies, one line before fifty. Supports intensity levels: lite, full (default), ultra. Use on ANY coding task: writing, adding, refactoring, fixing, reviewing, or designing code, and choosing libraries or dependencies. Also use whenever the user says \"ponytail\", \"be lazy\", \"lazy mode\", \"simplest solution\", \"minimal solution\", \"yagni\", \"do less\", or \"shortest path\", or complains about over-engineering, bloat, boilerplate, or unnecessary dependencies. Do NOT use for non-coding requests (general knowledge, prose, translation, summaries, recipes).",
       "category": "implement",
       "path": "tools/ponytail",
+      "has_skill_md": true
+    },
+    "receiving-code-review": {
+      "name": "receiving-code-review",
+      "description": "Handle code review feedback without defensiveness: read all of it first, classify each item (real issue / misread / partly right / style preference), fix what is real, explain what is not with evidence, and reply per item. Use when receiving review comments on a PR or diff, when a reviewer or user points out problems in your code, or when asked to address review findings. 触发场景：收到代码审查意见、PR review 反馈、用户指出代码问题、被要求处理 review 结论时。",
+      "category": "verify",
+      "path": "tools/receiving-code-review",
       "has_skill_md": true
     },
     "security-best-practices": {
