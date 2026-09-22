@@ -5,7 +5,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Agent Skills Ready](https://img.shields.io/badge/Agent%20Skills-Standard-green.svg)](https://agentskills.io/)
-[![Zero Missing Members](https://img.shields.io/badge/Members-27%20Self--Contained-brightgreen.svg)]()
+[![Zero Missing Members](https://img.shields.io/badge/Members-30%20Self--Contained-brightgreen.svg)]()
 [![Multi-Agent Mutual Exclusion](https://img.shields.io/badge/Coordination-Atomic%20Lease%20Lock-brightgreen.svg)]()
 [![Full SDLC Pipeline](https://img.shields.io/badge/SDLC-Preflight%E2%86%92Design%E2%86%92TDD%E2%86%92Review%E2%86%92Closeout-blue.svg)]()
 

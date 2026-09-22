@@ -3,7 +3,7 @@ name: auto-skills
 description: >
   Next-Gen AI Development Workflow Orchestrator, Multi-Skill Router & Multi-Agent Coordination Hub (v3.0 Flagship).
   深度融合多 Agent 原子任务认领与排他工作台账中枢 (nm-skills 牛马协同中枢)：原生提供任务独占锁 (claim)、租约排他锁 (Lease with TTL)、严格单调防撞编号分配器、实时任务看板 (board) 与工作日志自动归档，彻底根除多 Agent 并发抢跑同一任务、序号同号冲突与文件覆盖痛点。
-  Bundles 27 top-tier universal workflow skills with zero-missing multi-root fallback resolution and full SDLC lifecycle stage routing:
+  Bundles 30 top-tier universal workflow skills with zero-missing multi-root fallback resolution and full SDLC lifecycle stage routing:
   using-superpowers (baseline pre-flight), nm-skills (atomic task claim & mutual exclusion ledger), grill-me (Socratic requirement stress-test), brainstorming (intent/design hard gate),
   codebase-onboarding (unfamiliar repo recon), markdown-viewer (architectural diagrams), ponytail (YAGNI minimal coding),
   test-driven-development (TDD red-green-refactor), systematic-debugging (4-phase root cause), code-review (5-axis QA),
