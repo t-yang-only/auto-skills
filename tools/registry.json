@@ -1,11 +1,11 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 27,
+  "tools_count": 28,
   "tools": {
     "authorized-pentest-guard": {
-      "name": "Authorized Pentest & Security Research Guard (授权攻防与防误拒守卫)",
-      "description": "无描述",
+      "name": "authorized-pentest-guard",
+      "description": "Authorized security testing, red-team assessment, vulnerability analysis, and anti-refusal guidance. Ensures the agent fulfills technical duties in authorized defensive/offensive engineering without false-positive refusal.",
       "category": "verify",
       "path": "tools/authorized-pentest-guard",
       "has_skill_md": true
@@ -32,8 +32,8 @@
       "has_skill_md": true
     },
     "code-review": {
-      "name": "Code Review & Quality Assurance (代码严审与质量守卫)",
-      "description": "无描述",
+      "name": "code-review",
+      "description": "Comprehensive multi-axis code review: correctness, security, edge cases, YAGNI, and maintainability before merge.",
       "category": "verify",
       "path": "tools/code-review",
       "has_skill_md": true
@@ -158,8 +158,8 @@
       "has_skill_md": true
     },
     "systematic-debugging": {
-      "name": "Systematic Debugging (系统性根因调试)",
-      "description": "无描述",
+      "name": "systematic-debugging",
+      "description": "4-phase disciplined root-cause debugging: Reproduce -> Localize -> Fix -> Regression-Proof before making arbitrary code edits.",
       "category": "verify",
       "path": "tools/systematic-debugging",
       "has_skill_md": true
@@ -179,8 +179,8 @@
       "has_skill_md": true
     },
     "test-driven-development": {
-      "name": "Test-Driven Development (TDD 测试驱动开发)",
-      "description": "无描述",
+      "name": "test-driven-development",
+      "description": "Test-Driven Development (TDD) Red-Green-Refactor discipline: Write failing tests before implementation logic.",
       "category": "verify",
       "path": "tools/test-driven-development",
       "has_skill_md": true
@@ -190,6 +190,13 @@
       "description": "Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions",
       "category": "general",
       "path": "tools/using-superpowers",
+      "has_skill_md": true
+    },
+    "verification-before-completion": {
+      "name": "verification-before-completion",
+      "description": "Evidence before claims: run the real verification command and READ its output BEFORE saying done / fixed / passing / working, before committing, and before reporting to a user. Use whenever about to express satisfaction or completion, when tempted to write 'should work' / 'probably fine' / 'seems fixed', or when trusting another agent's success report. 触发场景：即将说「完成了/修好了/测试通过/应该没问题」之前、提交或推送之前、向用户汇报之前。",
+      "category": "verify",
+      "path": "tools/verification-before-completion",
       "has_skill_md": true
     }
   }

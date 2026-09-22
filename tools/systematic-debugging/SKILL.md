@@ -1,4 +1,4 @@
-﻿---
+---
 name: systematic-debugging
 description: "4-phase disciplined root-cause debugging: Reproduce -> Localize -> Fix -> Regression-Proof before making arbitrary code edits."
 ---

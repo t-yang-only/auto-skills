@@ -55,6 +55,17 @@ def load_cfg():
                     cfg["default_urgency"] = s.split(":", 1)[1].strip()
     tk = os.path.join(ROOT, cfg["token_file"])
     cfg["token"] = open(tk, encoding="utf-8").read().strip() if os.path.exists(tk) else ""
+    # 真实网关地址放在被 gitignore 的 config/gateway.url 里，
+    # 让 config/config.yaml 能保持可公开的占位符（该 skill 会推 GitHub）。
+    try:
+        _gu = os.path.join(ROOT, "config", "gateway.url")
+        if os.path.isfile(_gu):
+            _v = open(_gu, encoding="utf-8").read().strip()
+            if _v:
+                cfg["url"] = _v
+    except Exception:
+        pass
+
     return cfg
 
 

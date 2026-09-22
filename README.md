@@ -21,7 +21,7 @@
 
 **auto-skills v3.0** 专为解决全流程治理与多 Agent 协同而生：
 - **深度融合 nm-skills 牛马协同台账**：原生搭载分布式原子任务认领 (`claim`)、租约排他锁 (`Lease with TTL`)、严格单调递增编号分配器与实时看板 (`board`)，彻底根除任务冲突；
-- **自洽收拢 27 个高星通用技能**：你只需输入任务意图，调度引擎将自动为你生成端到端的执行流水线，并严格保证各阶段的硬门禁！
+- **自洽收拢 28 个高星通用技能**：你只需输入任务意图，调度引擎将自动为你生成端到端的执行流水线，并严格保证各阶段的硬门禁！
 
 ---
 
@@ -70,6 +70,7 @@ auto-skills/
 │   ├── jupyter-notebook/   # 【交互科研】Jupyter Notebook (.ipynb) 脚手架与数据实验
 │   ├── systematic-debugging/# 【根因调试】4步系统性根因诊断环：复现->溯源->微创修复->防退化
 │   ├── code-review/        # 【代码严审】5轴多维代码审查：正确性/安全/架构/复杂度/测试
+│   ├── verification-before-completion/# 【完成前验证】证据先于断言：未跑验证不得声称完成
 │   ├── security-best-practices/ # 【安全防线】语言与框架特定安全漏洞与加固审计
 │   ├── authorized-pentest-guard/ # 【攻防守卫】合法授权渗透、漏洞PoC与防误拒技术守卫
 │   ├── playwright/         # 【端到端验证】真实浏览器自动化测试、表单录制与UI走查
@@ -81,7 +82,7 @@ auto-skills/
 │   ├── caveman/            # 【极限紧凑】洞穴人极限 token 压缩模式（节约 65% tokens）
 │   └── no-negative-echo/   # 【干净输出】去除纠错痕迹与负面回声，保持交付纯粹
 └── references/
-    └── capability-map.md   # 核心成员能力全景映射表与冲突优先级
+    └── capability-map.md   # 28 大成员能力全景映射表与冲突优先级
 ```
 
 ---

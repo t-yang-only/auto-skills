@@ -60,8 +60,8 @@ def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
         return meta
 
     try:
-        content = skill_md_path.read_text(encoding="utf-8", errors="ignore")
-        fm_match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+        content = skill_md_path.read_text(encoding="utf-8-sig", errors="ignore")  # utf-8-sig 自动剥离 BOM
+        fm_match = re.match(r"^\ufeff?---\s*\n(.*?)\n---", content, re.DOTALL)
         if fm_match:
             fm_text = fm_match.group(1)
             lines = fm_text.splitlines()
@@ -96,7 +96,7 @@ def parse_skill_metadata(skill_md_path: Path) -> Dict[str, str]:
 
 def infer_category(name: str) -> str:
     name_lower = name.lower()
-    if any(w in name_lower for w in ("test", "debug", "ci", "review", "security", "pentest", "playwright")):
+    if any(w in name_lower for w in ("test", "debug", "ci", "review", "security", "pentest", "playwright", "verif", "audit")):
         return "verify"
     elif any(w in name_lower for w in ("find", "discover", "skillnet")):
         return "acquire"

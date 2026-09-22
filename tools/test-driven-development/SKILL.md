@@ -1,4 +1,4 @@
-﻿---
+---
 name: test-driven-development
 description: "Test-Driven Development (TDD) Red-Green-Refactor discipline: Write failing tests before implementation logic."
 ---
