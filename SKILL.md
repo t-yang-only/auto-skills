@@ -323,7 +323,7 @@ python scripts/opinion_request.py check <单号>     # 看某张单子的结论
 改动本仓库后跑这三条，它们是**可执行的判据**，不是说明文字：
 
 ```bash
-# 1) 台账与文档一致性（23 项断言）
+# 1) 台账与文档一致性（30 项断言）
 python scripts/_test_registry.py
 
 # 2) 数据库落库容错层（12 项断言，需能连到实例 A）
