@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 39,
+  "tools_count": 41,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -92,6 +92,13 @@
       "description": "Use when a user asks to debug or fix failing GitHub PR checks that run in GitHub Actions; use `gh` to inspect checks and logs, summarize failure context, draft a fix plan, and implement only after explicit approval. Treat external providers (for example Buildkite) as out of scope and report only the details URL.",
       "category": "verify",
       "path": "tools/gh-fix-ci",
+      "has_skill_md": true
+    },
+    "git-guardrails": {
+      "name": "git-guardrails",
+      "description": "给 AI agent 装 git 防护钩子，在破坏性命令执行前拦下它们。当用户要防止 agent 误用 git push / reset --hard / clean -f / branch -D，或要给项目加 git 安全网时使用；也适用于把已有的 .githooks 扩展成完整拦截清单。触发词：git 防护、危险 git 命令、防误删、git 安全钩子、拦截 push。",
+      "category": "verify",
+      "path": "tools/git-guardrails",
       "has_skill_md": true
     },
     "grill-me": {
@@ -260,6 +267,13 @@
       "description": "Evidence before claims: run the real verification command and READ its output BEFORE saying done / fixed / passing / working, before committing, and before reporting to a user. Use whenever about to express satisfaction or completion, when tempted to write 'should work' / 'probably fine' / 'seems fixed', or when trusting another agent's success report. 触发场景：即将说「完成了/修好了/测试通过/应该没问题」之前、提交或推送之前、向用户汇报之前。",
       "category": "verify",
       "path": "tools/verification-before-completion",
+      "has_skill_md": true
+    },
+    "wizard": {
+      "name": "wizard",
+      "description": "生成一个交互式 bash 向导，带人走完只有人才能做的步骤。当需要开通基础设施、配置凭据或 CI secrets、走陌生的第三方控制台、或执行一次性迁移与切换时使用。触发词：向导脚本、带我配置、人工步骤、凭据配置、CI secrets、迁移脚本。",
+      "category": "implement",
+      "path": "tools/wizard",
       "has_skill_md": true
     },
     "writing-for-agents": {
