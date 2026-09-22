@@ -36,6 +36,7 @@ auto-skills/
 ├── README.md               # 开源项目全景说明文档
 ├── LICENSE                 # MIT 开源协议
 ├── .gitignore              # Git 过滤规则 (包含 .evolution 私有进化区保护)
+├── .gitattributes          # 统一行尾为 LF (防 Windows autocrlf 把检出改成 CRLF)
 ├── config/                 # 统一配置中心 (默认下载时配置细节为空)
 │   ├── config.yaml         # 活跃配置文件 (默认空配置模版)
 │   └── config.example.yaml # 完整配置注释范例文本
