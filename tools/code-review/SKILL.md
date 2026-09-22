@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Comprehensive multi-axis code review: correctness, security, edge cases, YAGNI, and maintainability before merge."
+description: "Comprehensive multi-axis code review: correctness, security, edge cases, YAGNI, and maintainability before merge. Use when reviewing a diff, PR, or branch before merge, when the user asks for a review / 审查 / code review, or before declaring an implementation complete."
 ---
 
 # Code Review & Quality Assurance (代码严审与质量守卫)

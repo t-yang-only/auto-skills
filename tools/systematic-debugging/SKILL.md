@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: "4-phase disciplined root-cause debugging: Reproduce -> Localize -> Fix -> Regression-Proof before making arbitrary code edits."
+description: "4-phase disciplined root-cause debugging: Reproduce -> Localize -> Fix -> Regression-Proof before making arbitrary code edits. Use when a bug, failing test, crash, or unexpected behavior needs a root cause, when a first fix attempt failed, or when the user reports something is broken / 报错 / 不工作."
 ---
 
 # Systematic Debugging (系统性根因调试)

@@ -97,6 +97,17 @@ def main():
     else:
         check("私有区 registry 不存在（跳过）", True, cust_reg)
 
+    # ---- 3c. description 必须含触发条件 ----
+    # description 是 agent 判断「何时加载本技能」的唯一依据；只写「能力是什么」
+    # 而不写「什么时候用」，会让技能在真正需要时想不起来被加载。
+    print("\n[3c] description 含触发条件线索")
+    TRIG = re.compile(r"Use when|Use (this )?(after|before|for|on|during|to)|Triggers|Trigger only|"
+                      r"Activate when|whenever|when the user|MUST use this|"
+                      r"当|触发|适用于|用于", re.I)
+    notrig = [k for k, v in tools.items() if not TRIG.search(v.get("description", ""))]
+    check("每个 description 都有触发条件", not notrig,
+          "缺触发: %s" % (", ".join(notrig) if notrig else "无"))
+
     # ---- 4. 每个技能都有 SKILL.md ----
     print("\n[4] SKILL.md 齐备")
     no_md = [d for d in dirs if not os.path.isfile(os.path.join(TOOLS, d, "SKILL.md"))]
