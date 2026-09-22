@@ -35,3 +35,6 @@ config/gateway.token
 # 数据库凭据（绝不提交：本仓库有公开远端）
 config/db.password
 config/gateway.url
+
+# nm-skills 运行时台账（各 Agent 的认领/工作日志，属本地协作状态，不进版本库）
+agent_word/

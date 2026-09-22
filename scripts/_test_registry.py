@@ -143,9 +143,10 @@ def main():
 
     # ---- 7. 文档目录树与实际顶层结构一致 ----
     # 目录树是读者理解项目布局的唯一入口；新增目录没写进树会长期不被发现。
-    # .evolution 是私有进化区，文档有意不列；.git 是版本库元数据。
+    # .evolution 是私有进化区、agent_word 是 nm-skills 运行时台账，
+    # 两者都是本地状态、文档有意不列；.git 是版本库元数据。
     print("\n[7] 文档目录树与实际顶层结构一致")
-    ALLOW_OMIT = {".evolution", ".git"}
+    ALLOW_OMIT = {".evolution", ".git", "agent_word"}
     actual = {d for d in os.listdir(ROOT) if d not in ALLOW_OMIT}
     for fn in ("README.md", "SKILL.md"):
         p = os.path.join(ROOT, fn)
