@@ -323,15 +323,17 @@ python scripts/opinion_request.py check <单号>     # 看某张单子的结论
 改动本仓库后跑这三条，它们是**可执行的判据**，不是说明文字：
 
 ```bash
-# 1) 台账与文档一致性（31 项断言）
+# 1) 台账与文档一致性
 python scripts/_test_registry.py
 
-# 2) 数据库落库容错层（12 项断言，需能连到实例 A）
+# 2) 数据库落库容错层（需能连到实例 A）
 python scripts/_test_failover.py
 
-# 3) 守卫的守卫：破坏文档树必须让上面第 1 条变红（6 个用例）
+# 3) 守卫的守卫：破坏文档/台账必须让上面第 1 条变红
 python scripts/_test_doc_tree_guards.py
 ```
+
+每条用例的通过/失败都在输出里逐项列出，**所以这里不写断言条数** —— 条数是实现细节，写进文档就会长期脱节（本仓库已因此改过多次）。
 
 `_test_registry.py` 覆盖两类曾经真实发生过的缺陷，改完必须重跑：
 
