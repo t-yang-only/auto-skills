@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "scope": "public_tools",
-  "tools_count": 42,
+  "tools_count": 44,
   "tools": {
     "authorized-pentest-guard": {
       "name": "authorized-pentest-guard",
@@ -59,6 +59,13 @@
       "path": "tools/codex-project-closeout",
       "has_skill_md": true
     },
+    "contradiction-analysis": {
+      "name": "contradiction-analysis",
+      "description": "矛盾分析法：把复杂问题拆成若干对立面，找出规定其他矛盾的主要矛盾及其主要方面，判定对抗性/非对抗性，并据此选择处理方式。当问题头绪多、多个因素互相牵制、优先级不清、根因不明、反复修不好、取舍说不清时使用；单维度直接执行或用户已定方案时不使用。",
+      "category": "understand",
+      "path": "tools/contradiction-analysis",
+      "has_skill_md": true
+    },
     "diagnosing-skills": {
       "name": "diagnosing-skills",
       "description": "Diagnose why a session or skill misbehaved: a skill that should have fired but did not, an agent that ignored its plan, repeated work, or burned far more tokens than expected. Reads the session trail and the auto-skills trace tables, reports with line-level evidence, and can package a scrubbed bundle. Use when asked to figure out what went wrong, why a skill did not trigger, why nothing got written to the database, or when a session feels off. 触发场景：会话/技能表现异常、该触发的技能没触发、落库没数据、任务重复、token 异常超支、被要求排查「刚才那次为什么不对」时。",
@@ -113,6 +120,13 @@
       "description": "Thin vertical slices: implement, verify, and commit one independently reversible unit at a time instead of a big-bang change. Use when a change touches more than one file, when starting a feature or refactor, when a task feels too large to verify in one shot, or when the user asks for incremental / 分步 / 小步 提交.",
       "category": "implement",
       "path": "tools/incremental-implementation",
+      "has_skill_md": true
+    },
+    "investigation-first": {
+      "name": "investigation-first",
+      "description": "调查研究：在下判断、做决策、给建议之前，先用第一手材料弄清现状，产出「事实 / 推断 / 未知」三栏结论。当上下文不完整、证据薄弱、领域陌生、用户说\"先看看\"、或你发现自己在凭印象作答时使用；已充分调查后的执行阶段不要重复触发。",
+      "category": "understand",
+      "path": "tools/investigation-first",
       "has_skill_md": true
     },
     "jupyter-notebook": {

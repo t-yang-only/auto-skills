@@ -1,12 +1,12 @@
-# auto-skills 42 大核心成员能力映射矩阵 (Capability Map v2.6)
+# auto-skills 44 大核心成员能力映射矩阵 (Capability Map v2.6)
 
-> auto-skills 采用母 Skill 架构，内部 `tools/` 完整收拢 42 个顶尖高星通用成员技能。
+> auto-skills 采用母 Skill 架构，内部 `tools/` 完整收拢 44 个顶尖高星通用成员技能。
 > 具备 6 级多根自适应寻址机制，兼顾本地独立自洽与系统级跨环境调用。
 > 本表的权威数据源是 `tools/registry.json`（由 `scripts/tool_onboarder.py --scan` 生成）。
 
 ---
 
-## 1. 42 大成员能力全景矩阵
+## 1. 44 大成员能力全景矩阵
 
 | 序号 | 成员 Skill | 生命周期阶段 | 核心定位与职责 |
 |---|---|---|---|
@@ -52,6 +52,8 @@
 | 40 | `git-guardrails` | `verify` | **防护**：拦破坏性 git 命令，必须同时验证拦截与放行 |
 | 41 | `wizard` | `implement` | **向导**：生成人工步骤脚本，值必须有来源与落点 |
 | 42 | `retro` | `verify` | **复盘**：从会话倒推环境改进点；机械性违规建检查，判断题才写标准 |
+| 43 | `investigation-first` | `understand` | **调查**：先出「事实/推断/未知」三栏再下判断；走马观花不算调查，调查有预算 |
+| 44 | `contradiction-analysis` | `understand` | **矛盾**：主要矛盾只能有一个；因果/根源/阶段三检验判定，并列监控转化风险 |
 
 ---
 
