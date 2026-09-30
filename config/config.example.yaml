@@ -55,8 +55,8 @@ database:
     # 熔断首次打开时是否推送通知（复用 notifications.serverchan_sendkey）
     notify_on_breaker: false
 
-# Agent 网关（HK4H8G 上的 /opt/agent-gateway）：多机节点注册、任务下发、
-# 意见请求通道、知识库读写。不用的话整段 enabled: false 即可。
+# Agent 网关（自建，多机节点注册、任务下发、意见请求通道、知识库读写）：
+# 不用的话整段 enabled: false 即可。
 agent_gateway:
   enabled: false
   url: ""                       # 如 https://your-gateway.example.com
