@@ -69,6 +69,7 @@ auto-skills/
 │   ├── _test_untrusted_text.py # 回归：34 项（命中真实注入样本 / 不误报正常技术文本 / 变异检查）
 │   ├── _test_conn_reuse.py  # 回归：连接复用守卫（复用确发生 / 池不泄漏 / doctor 绕过池 / 变异检查）
 │   ├── _test_mutex_guards.py # 回归：FileMutex 互斥守卫（活着的持有者不被抢 / 释放不误删他人锁 / 变异检查）
+│   ├── _test_concurrent_claim.py # 回归：真实并发互斥（8 进程同时认领：同任务恰好 1 个成功 / 不同任务编号两两不同）
 │   └── _test_hk_link_live.py # 本地节点链路自检单测（mock pm2 与 gateway）
 ├── tools/                  # 内部完全自洽收拢的 44 大核心通用工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（绝对第0步）
@@ -410,6 +411,23 @@ python scripts/wizard_setup.py --deploy
 - **改这块必须先跑 `_test_conn_reuse.py`**。复用一旦失效，功能测试全绿、
   只是变慢，没有任何信号；守卫里有计数器与变异检查专门抓它。
 - 回退开关：`database.reuse_connection=false`（无需改代码即回到「每次新建」）。
+
+### 锁内绝不做 I/O（这是实测踩出来的）
+
+`agent_word/` 的那把 `task_coordination.lock` 只该保护**本地文件的读-改-写**
+（毫秒级）。落库是跨境写入（单条 1.3~3 秒），**必须放在锁外**。
+
+实测后果：`claim`/`done` 的落库原本写在锁内，8 个进程并发认领各自的任务时，
+临界区被串成 ~20 秒，而后来的进程等 10 秒就超时 —— **8 个里失败 2 个**
+（`TimeoutError` + 裸 traceback）。把落库移出锁后临界区回到毫秒级，
+同一测试 8/8 全过。
+
+判据在 `_test_concurrent_claim.py`：它用**真进程**验两条核心承诺——
+同一任务并发认领必须恰好 1 个成功（0=锁成死锁、≥2=互斥失效），
+不同任务并发认领必须全部成功且编号两两不同。
+
+新增/改动 `claim`、`done`、`release` 这类临界区代码后，**必须跑它**：
+临界区变长的代价不会在单进程测试里显形，只会在并发下变成随机的失败。
 
 ### 部署同步为什么是独立一环
 

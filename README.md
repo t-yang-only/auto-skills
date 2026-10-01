@@ -68,6 +68,7 @@ auto-skills/
 │   ├── _test_untrusted_text.py # 回归：34 项（命中 11 条真实注入样本 / 不误报 8 条正常技术文本 / 变异检查）
 │   ├── _test_conn_reuse.py  # 回归：连接复用守卫（复用确发生 / 池不泄漏 / 包装透传 / doctor 绕过池 / 变异检查）
 │   ├── _test_mutex_guards.py # 回归：FileMutex 互斥守卫（活着的持有者不被抢 / 释放不误删他人锁 / 崩溃锁快速回收 / 变异检查）
+│   ├── _test_concurrent_claim.py # 回归：真实并发互斥（8 进程同时认领：同任务恰好 1 个成功 / 不同任务全部成功且编号两两不同）
 │   └── _test_hk_link_live.py # 本地节点链路自检单测（mock pm2 与 gateway）
 ├── tools/                  # 内部收拢的 44 大核心专业工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（第0步）

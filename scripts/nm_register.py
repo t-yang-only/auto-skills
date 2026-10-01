@@ -550,28 +550,35 @@ def claim_task_atomic(
         # 刷新 任务认领表.md
         refresh_board_markdown(agent_dir, locks_dir)
 
-        # 5. 全链路自动持久化入库 (MySQL 8.4)：认领记录 + 工具链调用轨迹
-        try:
-            import db_sync
-            db_sync.record_task_claim_db(claim_info, project_root=str(root))
-            db_sync.record_tool_trace_db(
-                "nm-skills", "nm_register", action="claim", stage="coordination",
-                input_params={"task_id": tid, "ttl_minutes": ttl_minutes},
-                output_summary=f"{agent_id} 独占锁定 {tid}（租约 {ttl_minutes} 分钟）",
-                project_root=str(root), client=os.environ.get("NM_CLIENT_ID", "CODE"))
-        except Exception as _e:
-            _db_note("claim_trace", _e)
+    # ─── 从这里往下已经在锁外 ───
+    #
+    # 落库刻意移出临界区。锁的职责是保护 agent_word/ 本地文件的读-改-写，
+    # 那是毫秒级的本地操作；而下面是跨境 MySQL 写入，单条实测 1.3~3 秒。
+    # 把它放在锁内，N 个进程就得串行等 N×2.6 秒 —— 实测 8 个进程并发
+    # claim（各自不同任务）时有 2 个直接超时失败，因为后期进程要等 ~18 秒
+    # 而锁等待上限只有 10 秒。DB 写入本身是单行 autocommit、没有任何
+    # 需要靠这把锁维持的跨进程不变量，放在锁外是安全的。
+    try:
+        import db_sync
+        db_sync.record_task_claim_db(claim_info, project_root=str(root))
+        db_sync.record_tool_trace_db(
+            "nm-skills", "nm_register", action="claim", stage="coordination",
+            input_params={"task_id": tid, "ttl_minutes": ttl_minutes},
+            output_summary=f"{agent_id} 独占锁定 {tid}（租约 {ttl_minutes} 分钟）",
+            project_root=str(root), client=os.environ.get("NM_CLIENT_ID", "CODE"))
+    except Exception as _e:
+        _db_note("claim_trace", _e)
 
-        msg = f"🎉 【认领成功】任务 [{tid}] 已成功由 【{agent_id}】 独占锁定，租约有效期 {ttl_minutes} 分钟。"
-        print(msg)
-        return {
-            "success": True,
-            "agent_id": agent_id,
-            "task_id": tid,
-            "status": "IN_PROGRESS",
-            "expires_at": claim_info["expires_at"],
-            "message": msg
-        }
+    msg = f"🎉 【认领成功】任务 [{tid}] 已成功由 【{agent_id}】 独占锁定，租约有效期 {ttl_minutes} 分钟。"
+    print(msg)
+    return {
+        "success": True,
+        "agent_id": agent_id,
+        "task_id": tid,
+        "status": "IN_PROGRESS",
+        "expires_at": claim_info["expires_at"],
+        "message": msg
+    }
 
 
 def release_task_atomic(root: Path, task_id: str, reason: str = "主动放弃") -> bool:
@@ -704,34 +711,34 @@ def complete_task_atomic(
         # 4. 刷新看板
         refresh_board_markdown(agent_dir, locks_dir)
 
-        # 5. 全链路自动持久化入库 (MySQL 8.4)
-        try:
-            import db_sync
-            done_info = {
-                "task_id": tid,
-                "holder_id": holder_id,
-                "client": client,
-                "task_name": task_name or tid,
-                "changes": changes,
-                "api": api,
-                "files": files,
-                "skills": skills,
-                "mcps": mcps,
-                "tools": tools,
-                "done_time": done_t,
-                "journal": block
-            }
-            db_sync.record_task_done_db(done_info, project_root=str(root))
-            db_sync.record_tool_trace_db(
-                "nm-skills", "nm_register", action="done", stage="coordination",
-                input_params={"task_id": tid, "changes": _n_items(changes), "files": _n_items(files)},
-                output_summary=f"任务 {tid} 完成；改动 {_n_items(changes)} 项、涉及 {_n_items(files)} 个文件",
-                project_root=str(root), client=os.environ.get("NM_CLIENT_ID", "CODE"))
-        except Exception as _e:
-            _db_note("done_trace", _e)
+    # ─── 从这里往下已经在锁外（理由同 claim_task_atomic 里的说明）───
+    try:
+        import db_sync
+        done_info = {
+            "task_id": tid,
+            "holder_id": holder_id,
+            "client": client,
+            "task_name": task_name or tid,
+            "changes": changes,
+            "api": api,
+            "files": files,
+            "skills": skills,
+            "mcps": mcps,
+            "tools": tools,
+            "done_time": done_t,
+            "journal": block
+        }
+        db_sync.record_task_done_db(done_info, project_root=str(root))
+        db_sync.record_tool_trace_db(
+            "nm-skills", "nm_register", action="done", stage="coordination",
+            input_params={"task_id": tid, "changes": _n_items(changes), "files": _n_items(files)},
+            output_summary=f"任务 {tid} 完成；改动 {_n_items(changes)} 项、涉及 {_n_items(files)} 个文件",
+            project_root=str(root), client=os.environ.get("NM_CLIENT_ID", "CODE"))
+    except Exception as _e:
+        _db_note("done_trace", _e)
 
-        print(f"[OK] 任务 [{tid}] 已圆满完成！工作台账已更新，排他锁已安全释放。")
-        return True
+    print(f"[OK] 任务 [{tid}] 已圆满完成！工作台账已更新，排他锁已安全释放。")
+    return True
 
 
 def update_skills_recommendation(agent_dir: Path, skills: str, mcps: str, tools: str):
@@ -1075,4 +1082,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except TimeoutError as _e:
+        # 排他锁等待超时不该以裸 traceback 结束：使用者看到的是几十行堆栈，
+        # 而真正该知道的三件事（是谁占着、占了多久、该怎么办）已经在异常的
+        # 说明里了（见 FileMutex._timeout_detail）。这里只负责把它体面地
+        # 呈现出来，并用一个可判别的退出码收尾。
+        print("[!] 排他锁等待超时 —— 未能进入协同临界区。", file=sys.stderr)
+        print(str(_e), file=sys.stderr)
+        sys.exit(4)
+    except KeyboardInterrupt:
+        print("\n[!] 已中断。", file=sys.stderr)
+        sys.exit(130)
