@@ -1096,13 +1096,137 @@ def _maybe_replay() -> None:
         _REPLAY_GUARD["running"] = False
 
 
-# ---------------------------------------------------------------- 连接包装
+# ---------------------------------------------------------------- 连接复用
+#
+# 为什么需要（2026-10-02 实测）：
+#   新建一次 MySQL 连接 = 1065~1640ms（跨境 TCP + MySQL 握手 + 认证）
+#   复用连接上的一条查询 = 180ms（≈ RTT）
+#   而 auto_router 一次路由分发要写 2 条库（router_audit + tool_trace），
+#   也就是 2 次完整握手 ≈ 2.7s —— 占路由全程 3.0s 的 90%+。
+#   复用一个连接即可省下其中一次握手（1.1~1.6s）。
+#
+# 为什么用「包装 close()」而不是改 13 个调用点：
+#   全部调用方都写成 `conn = get_db_connection() ... conn.close()`。
+#   包装后 close() 的语义从「关闭」变为「归还」，调用点一行不用改，出错面最小。
+#
+# 存活检查只在「闲置超过阈值」时做：
+#   热路径是 取→用→还，间隔毫秒级，连接不可能失效，ping 就是白花一个 RTT；
+#   长驻进程（定时器/看门狗）闲置久了才需要确认，那时一个 RTT 可以接受。
+_POOL: Dict[str, Any] = {"conn": None, "idle_since": 0.0}
+_POOL_IDLE_PING_AFTER = 30.0     # 闲置超过 30s 才 ping 存活
+
+
+def _reuse_enabled() -> bool:
+    """连接复用开关（database.reuse_connection，默认 true）。
+
+    留这个开关是为了出问题时能一行配置回退到「每次都新建连接」的老行为，
+    不必改代码。
+    """
+    try:
+        return bool(config_manager.get_value("database.reuse_connection", True))
+    except Exception:
+        return True
+
+
+class _PooledConnection:
+    """让 close() 变成「归还池子」而不是「真关」。
+
+    其余属性/方法一律透传给底层连接（cursor / ping / commit ...）。
+    """
+
+    __slots__ = ("_raw",)
+
+    def __init__(self, raw):
+        object.__setattr__(self, "_raw", raw)
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, "_raw"), name)
+
+    def __setattr__(self, name, value):
+        setattr(object.__getattribute__(self, "_raw"), name, value)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+    def close(self):
+        """归还而非关闭（真正关闭用 really_close）。"""
+        _release_pooled(object.__getattribute__(self, "_raw"))
+
+    def really_close(self):
+        object.__getattribute__(self, "_raw").close()
+
+
+def _release_pooled(raw) -> None:
+    """把底层连接放回池子；池子已有人（或已关闭）就真关掉。"""
+    if not _reuse_enabled():
+        try:
+            raw.close()
+        except Exception:
+            pass
+        return
+    if _POOL["conn"] is None:
+        _POOL["conn"] = raw
+        _POOL["idle_since"] = _time.time()
+    else:
+        # 池子只留一条：多出来的直接关，避免连接泄漏
+        try:
+            raw.close()
+        except Exception:
+            pass
+
+
+def _acquire_pooled():
+    """取池中连接（必要时先验活）。没有可用连接返回 None。"""
+    raw = _POOL["conn"]
+    if raw is None:
+        return None
+
+    idle = _time.time() - float(_POOL["idle_since"] or 0)
+    if idle > _POOL_IDLE_PING_AFTER:
+        # 闲置久了才验活：reconnect=False 表示「坏了就报错」，
+        # 由我们决定丢弃重建，而不是让驱动悄悄换一条连接。
+        try:
+            raw.ping(reconnect=False)
+        except Exception:
+            try:
+                raw.close()
+            except Exception:
+                pass
+            _POOL["conn"] = None
+            return None
+
+    _POOL["conn"] = None          # 先摘出来，防止同一连接被两处同时持有
+    return _PooledConnection(raw)
+
+
+def close_db_pool() -> None:
+    """进程收尾时调用，真正关闭池中连接并复位池状态。
+
+    idle_since 也一并归零：当前 conn 为 None 时没人读它，留着无害；
+    但「池空 ⟺ 状态干净」这个不变式不成立时，将来任何新增的读取路径
+    都会踩到陈旧值。刻意不省这一行。
+    """
+    raw = _POOL.get("conn")
+    _POOL["conn"] = None
+    _POOL["idle_since"] = 0.0
+    if raw is not None:
+        try:
+            raw.close()
+        except Exception:
+            pass
+
 
 def get_db_connection(timeout: int = 8):
-    """带熔断的数据库连接。
+    """带熔断的数据库连接（可选进程内复用）。
 
-    与原始实现的唯一差别：熔断打开时立即抛 DatabaseUnavailable，不再发起 TCP 连接。
-    这是「库挂了不能拖慢 agent」的关键——没有它，每次落库都要干等 8 秒超时。
+    与原始实现的差别有二：
+    1) 熔断打开时立即抛 DatabaseUnavailable，不再发起 TCP 连接 ——
+       「库挂了不能拖慢 agent」的关键，没有它每次落库都要干等 8 秒超时。
+    2) 连接复用（database.reuse_connection，默认 true）—— 见下方 _PooledConnection。
     """
     if not is_db_enabled():
         raise DatabaseUnavailable("数据库已关闭（database.enabled=false 或 type=disabled）")
@@ -1115,6 +1239,10 @@ def get_db_connection(timeout: int = 8):
                 f"熔断器打开中（剩余 {int(until - now)}s）—— 上次错误："
                 f"{_load_health().get('last_error', '')[:150]}")
 
+    pooled = _acquire_pooled()
+    if pooled is not None:
+        return pooled
+
     try:
         conn = _get_db_connection_raw(timeout=timeout)
     except Exception as e:
@@ -1123,6 +1251,8 @@ def get_db_connection(timeout: int = 8):
 
     _health_record_success()
     _maybe_replay()          # 库刚恢复，顺手把暂存回灌
+    if _reuse_enabled():
+        return _PooledConnection(conn)
     return conn
 
 
@@ -1152,7 +1282,11 @@ def print_db_doctor() -> None:
 
     print("-" * 70)
     try:
-        conn = get_db_connection()
+        # 刻意绕过连接池（_get_db_connection_raw）：
+        # 复用池里的旧连接会让「实时连通性」变成一句假话——
+        # 网络已经断了、池里那条还没被发现坏，照样回报 OK。
+        # 自检要的就是一次真实的握手，那个 RTT 是它该花的成本。
+        conn = _get_db_connection_raw()
         with conn.cursor() as cur:
             cur.execute("SELECT VERSION()")
             ver = cur.fetchone()[0]
@@ -1213,4 +1347,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        # main() 各分支都走 sys.exit()，SystemExit 也会经过 finally ——
+        # 这里统一把池中连接真正关掉，不留半开连接。
+        close_db_pool()
