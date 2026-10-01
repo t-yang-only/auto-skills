@@ -433,14 +433,19 @@ def link_agents(agent_names: Optional[List[str]] = None, mode: str = "auto") -> 
 
     链接方案的收益：内容是**一份**（快照）而不是六份，重建只写一次，
     因此不可能出现"某些根同步了、某些没同步"的中间态；凭据也只有一个
-    地方需要守（快照本身排除了它们）。`--deploy` 之后所有根同时生效。
+    地方需要守——快照里的三个凭据是**硬链接**（同一份数据），
+    改真源即刻全生效，不会出现"某个副本带着旧密码留在磁盘上"。
+    `--deploy` 之后所有根同时生效。
 
     代价（必须知道）：真源改动不会自动出现在 harness 里，仍要跑
     `--deploy` 重建快照。这与副本方案的纪律要求相同，但失败模式更轻——
     要么全好要么全旧，不会出现参差不齐。
 
-    为什么链接快照而不链接真源：直链真源会让凭据从每个 harness 路径
-    可达（实测确认）。快照排除了凭据，链接路径下读不到。
+    ⚠️ 凭据在链接路径下**是可读的**（实测：三个链接根下
+    config/db.password 均 Test-Path=True）。它们被刻意硬链接进快照，
+    否则从链接根运行 db_sync 会因找不到密码文件而让整条落库链路失效。
+    **真正的安全边界是文件权限（0600）与"只有一份"，不是"链接路径读不到"**。
+    详见 build_dist 里的凭据硬链接说明——不要按"链接就藏住了"去设想防护。
 
     模式（实测结论）：
     - Windows 上目录符号链接需管理员（开发者模式已开也会报
@@ -725,23 +730,41 @@ def print_status():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="auto-skills 首次启动引导与配置向导")
-    parser.add_argument("--status", action="store_true", help="查看当前配置与 Agent 连接状态")
-    parser.add_argument("--auto", action="store_true", help="自动以推荐安全标准完成首次配置")
-    parser.add_argument("--connect-agents", action="store_true", help="立即扫描并建立到所有 Agent 环境的连接")
-    parser.add_argument("--deploy", action="store_true",
-                        help="重新分发到所有 Agent 技能目录（仓库更新后跑这个；链接形态下=重建快照）")
-    parser.add_argument("--link", action="store_true",
-                        help="改用目录链接指向分发快照（六个根共用一份内容；凭据不可从链接路径读到）")
-    parser.add_argument("--unlink", action="store_true",
-                        help="把链接形态改回独立副本（某些工具不跟随 Junction 时用）")
-    parser.add_argument("--mode", choices=["auto", "link", "copy"], default="auto",
-                        help="部署形态：auto=优先链接失败回退复制（默认）、link=只链接、copy=只复制")
-    parser.add_argument("--check-deploy", action="store_true",
-                        help="检查各 Agent 技能目录是否与仓库同步（含凭据残留巡检）")
-    parser.add_argument("--always-nm", choices=["true", "false"], help="设置是否永远默认启用 nm-skills 台账")
-    parser.add_argument("--gf-mode", choices=["true", "false"], help="设置是否默认开启女友人格")
-    parser.add_argument("--set-private-remote", help="设置个人私有 Git 仓库 URL")
+    parser = argparse.ArgumentParser(
+        description="auto-skills 配置向导 · 部署分发 · 环境集成",
+        epilog=(
+            "最常用的三条：\n"
+            "  python scripts/wizard_setup.py              裸跑 = 看当前配置与各入口连接状态\n"
+            "  python scripts/wizard_setup.py --deploy     仓库改动后分发到各 Agent 目录\n"
+            "  python scripts/wizard_setup.py --check-deploy  检查各入口是否与仓库一致\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    g_setup = parser.add_argument_group("首次配置")
+    g_setup.add_argument("--auto", action="store_true", help="自动以推荐安全标准完成首次配置")
+    g_setup.add_argument("--connect-agents", action="store_true",
+                         help="立即扫描并建立到所有 Agent 环境的连接")
+
+    g_deploy = parser.add_argument_group("部署与分发（日常最常用）")
+    g_deploy.add_argument("--deploy", action="store_true",
+                          help="重新分发到所有 Agent 技能目录（仓库更新后跑这个；链接形态下=重建快照）")
+    g_deploy.add_argument("--link", action="store_true",
+                          help="改用目录链接指向分发快照（各根共用一份内容）")
+    g_deploy.add_argument("--unlink", action="store_true",
+                          help="把链接形态改回独立副本（某些工具不跟随 Junction 时用）")
+    g_deploy.add_argument("--mode", choices=["auto", "link", "copy"], default="auto",
+                          help="部署形态：auto=优先链接失败回退复制（默认）、link=只链接、copy=只复制")
+    g_deploy.add_argument("--check-deploy", action="store_true",
+                          help="检查各 Agent 技能目录是否与仓库同步（含凭据残留巡检）")
+
+    g_state = parser.add_argument_group("状态查看")
+    g_state.add_argument("--status", action="store_true", help="查看当前配置与 Agent 连接状态")
+
+    g_set = parser.add_argument_group("设置项")
+    g_set.add_argument("--always-nm", choices=["true", "false"], help="设置是否永远默认启用 nm-skills 台账")
+    g_set.add_argument("--gf-mode", choices=["true", "false"], help="设置是否默认开启女友人格")
+    g_set.add_argument("--set-private-remote", help="设置个人私有 Git 仓库 URL")
 
     args = parser.parse_args()
 
@@ -857,6 +880,24 @@ def main():
             private_git="",
             connect_all_agents=True
         )
+        return
+
+    # 无参数运行且已配置完成 —— 必须说点什么，不能静默退出。
+    #
+    # 实测（2026-10-02）：裸跑本脚本输出 0 行、退出码 0。使用者看到
+    # 「什么都没发生」，只会以为工具坏了。而「已经配置完成」恰恰是首启
+    # 之后的常态，所以这条静默路径才是大多数人真正会遇到的那条。
+    #
+    # 处置与 db_sync.py 的既有约定保持一致（那边是
+    # `if args.status or len(sys.argv) == 1:` 显示状态），
+    # 不为同一件事再造第二套规则。
+    if len(sys.argv) == 1:
+        print_status()
+        print()
+        print("下一步：")
+        print("  · 要把当前仓库分发到各 Agent 技能目录  →  python scripts/wizard_setup.py --deploy")
+        print("  · 想检查各入口是否与仓库一致          →  python scripts/wizard_setup.py --check-deploy")
+        print("  · 查看全部可用选项                    →  python scripts/wizard_setup.py --help")
 
 
 if __name__ == "__main__":
