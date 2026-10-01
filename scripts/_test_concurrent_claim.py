@@ -139,6 +139,35 @@ def main():
         check("board 能看到全部已认领任务", "T-CONC-PROBE" in (r.stdout or ""),
               (r.stdout or "")[-160:])
 
+        # ---------- 判据 3：文件冲突防撞（第三项核心承诺）----------
+        #
+        # 不同任务、但都声明要改**同一个文件**时，只允许先到者持有，
+        # 其余必须收到 FILE_CONFLICT，而不是 8 个进程一起去改同一份文件。
+        shared_file = "scripts/_shared_target.py"
+        filecmds = [[sys.executable, str(SCRIPT), "claim",
+                     "--root", str(root),
+                     "--task-id", "T-CONC-PROBE-%s-F%d" % (stamp, i),
+                     "--task", "并发探针：同一文件只允许一个持有者",
+                     "--client", "F%d" % i, "--files", shared_file,
+                     "--ttl", "30"]
+                    for i in range(N_PROCS)]
+        res3 = spawn_all(filecmds)
+        wins3 = [txt for _, txt, _ in res3 if "认领成功" in txt]
+        # 判据必须锚在**用户可见的文案**上，不能锚内部状态码字面量。
+        # 实测踩过：状态常量叫 FILE_CONFLICT，但它从不出现在 stdout ——
+        # 用户看到的是「文件冲突拦截」。按常量名去断言会得到「拦截 0 个」
+        # 这种与事实相反的结论，让人以为守卫失效。
+        conflicts = sum(1 for _, txt, _ in res3 if "文件冲突拦截" in txt)
+        print("  并发认领不同任务但争同一文件（%d 进程）：成功 %d 个，"
+              "文件冲突拦截 %d 个" % (N_PROCS, len(wins3), conflicts))
+        check("同一文件的并发认领：恰好 1 个成功（文件冲突防撞成立）",
+              len(wins3) == 1,
+              "成功 %d 个 —— ≥2 个就会两个进程同时改同一份文件"
+              % len(wins3))
+        check("其余进程收到文件冲突拦截（而不是超时或异常）",
+              conflicts == N_PROCS - 1,
+              "拦截 %d / 其余 %d" % (conflicts, N_PROCS - 1))
+
     print()
     total = len(PASS) + len(FAIL)
     print("RESULT: %s (%d/%d)" % ("ALL_PASS" if not FAIL else "HAS_FAIL",
