@@ -768,8 +768,12 @@ def clean_stale_locks(root: Path) -> int:
                     f.unlink()
                     cleaned += 1
                     print(f"[*] 已清理过期僵尸任务锁: [{tid}] (持有者: {holder})")
-            except Exception:
-                pass
+            except Exception as e:
+                # 不能静默（2026-10-01 修）：某个锁文件解析/删除失败就一声不吭，
+                # 那个锁会留在原地继续阻塞后续 Agent 的认领，而 cleaned 计数
+                # 让人以为"已经清理过了"。至少要让排障的人看到是哪个文件。
+                print("[!] 清理僵尸锁失败（该锁仍会阻塞后续认领）：%s  (%s: %s)"
+                      % (f, type(e).__name__, e), file=sys.stderr)
     return cleaned
 
 

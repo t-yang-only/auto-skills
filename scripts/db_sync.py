@@ -849,7 +849,13 @@ def _save_health(h: Dict[str, Any]) -> None:
 # ---------------------------------------------------------------- 通知（可选）
 
 def _notify(title: str, body: str) -> None:
-    """熔断打开时的告警。best-effort：任何失败都不得影响主流程。"""
+    """熔断打开时的告警。best-effort：任何失败都不得影响主流程。
+
+    ⚠️ 「不得影响主流程」不等于「静默」（2026-10-01 修）：
+    熔断打开正是最需要使用者知道的时刻，而这里一旦推送失败就一声不吭，
+    使用者看到的是「功能没生效但没有任何信号」。改为 best-effort 继续，
+    但失败必须打到 stderr。
+    """
     try:
         if not _fo_get("notify_on_breaker", False):
             return
@@ -866,8 +872,9 @@ def _notify(title: str, body: str) -> None:
             f"https://sctapi.ftqq.com/{key}.send", data=data,
             headers={"Content-Type": "application/x-www-form-urlencoded"})
         urllib.request.urlopen(req, timeout=8).read()
-    except Exception:
-        pass
+    except Exception as e:
+        print("[!] 熔断告警推送失败（主流程不受影响，但你将收不到这条告警）："
+              "%s: %s" % (type(e).__name__, e), file=sys.stderr)
 
 
 # ---------------------------------------------------------------- 健康状态
