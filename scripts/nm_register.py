@@ -145,8 +145,18 @@ class FileMutex:
             try:
                 if self.lock_path.exists():
                     self.lock_path.unlink()
-            except Exception:
-                pass
+            except Exception as e:
+                # 绝不允许静默（2026-10-01 修的 P1）：锁释失败会留下锁文件，
+                # 之后每个 Agent 的 _acquire 都会 poll 到超时才抛
+                # TimeoutError —— 表现为「整套多 Agent 协同卡住」，
+                # 而这里一声不吭就等于把根因藏起来。必须打到 stderr，
+                # 并给出可执行处置（锁路径 + 30 秒后会被僵锁回收兜住）。
+                print("[!] 排他锁释放失败：%s  (%s: %s)" % (self.lock_path,
+                                                          type(e).__name__, e),
+                      file=sys.stderr)
+                print("    该锁残留会让其他 Agent 全部超时；"
+                      "30 秒后僵锁回收会兜底，也可手动删除上述文件。",
+                      file=sys.stderr)
 
 
 def get_agent_paths(root: Path) -> Tuple[Path, Path]:

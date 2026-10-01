@@ -95,10 +95,13 @@ def load_channels_config() -> Dict[str, Any]:
                     k = p.read_text(encoding="utf-8").strip()
                     if k:
                         return create_default_config(serverchan_key=k)
-            except Exception:
-                pass
-
-    # 若未找到任何配置，创建默认配置
+            except Exception as e:
+                # 不能静默（2026-10-01 修）：读不到通道配置就静默回落到
+                # DEFAULT_SERVERCHAN_KEY，使用者会以为告警发给了自己，
+                # 实际发去了内置默认 key —— 「功能没生效但没有任何信号」。
+                # 打到 stderr，让人看到是哪份配置、什么错。
+                print("[!] 读取推送渠道配置失败（%s）：%s: %s"
+                      % (p, type(e).__name__, e), file=sys.stderr)
     default_cfg = create_default_config(serverchan_key=DEFAULT_SERVERCHAN_KEY)
     try:
         cfg_path = get_active_config_path()
