@@ -59,6 +59,13 @@ KNOWN_AGENT_PATHS = [
     ("WorkBuddy AI", Path.home() / ".workbuddy-ai" / "skills"),
     ("Claude Code Dedicated", Path.home() / ".claude" / "skills"),
     ("Cursor IDE", Path.home() / ".cursor" / "skills"),
+    # Gemini CLI（2026-10-01 补）：本机已装（gemini.ps1）且 ~/.gemini/skills
+    # 下已有 81 个技能，但它不在清单里的后果不是"少接一根"，而是三件事同时失效：
+    #   ① 不参与 --link，于是它是独立副本，会与快照漂移；
+    #   ② --check-deploy 不比对它，漂移了也不报；
+    #   ③ purge_deployed_secrets() 不清它，凭据可能长期留在那份副本里。
+    # 判据：新增 harness 必须同时进 KNOWN_AGENT_PATHS，否则三处守卫都漏它。
+    ("Gemini CLI", Path.home() / ".gemini" / "skills"),
 ]
 
 
@@ -89,11 +96,26 @@ def purge_deployed_secrets(verbose: bool = True) -> List[str]:
 
     与 connect_agents 解耦：即使某根本轮不参与同步（例如路径不存在、
     被 agent_names 过滤、或同步失败），只要它下面已有旧副本就必须清理。
+
+    ⚠️ 链接形态的根必须跳过（2026-10-01 实测的 P1 缺陷）：
+    `build_dist()` 会**有意**把凭据以硬链接放进快照（见其 L375-401 的论证：
+    从链接根运行时 SKILL_ROOT 就是快照，db_sync.py 要读
+    `SKILL_ROOT/config/db.password`，快照里没有它落库整条链路就失效）。
+    而本函数遍历 `p/"auto-skills"` 时，链接根的这条路径会**经 junction 解析到
+    快照**，于是 `f.unlink()` 把快照里那个硬链接也删掉了。
+    实测后果：`--deploy` 每跑一次，快照的凭据就被清一次，
+    最终七个月链接根全部读不到 db.password，而 `--check-deploy` 还报
+    「无凭据残留」——因为从链接路径看它确实"不在"。
+    判据：链接形态下凭据只存在于快照一处（真源 → 硬链接 → 快照），
+    那是正确状态；要清的是**副本形态**里那些会过期的实体拷贝。
     """
     removed = []
     for name, p in KNOWN_AGENT_PATHS:
         target = p / "auto-skills"
         if not target.exists():
+            continue
+        # 链接形态：凭据属于快照（设计使然），不能经 junction 去删
+        if _is_junction(target) or target.is_symlink():
             continue
         for rel in SECRET_FILES:
             f = target / rel
