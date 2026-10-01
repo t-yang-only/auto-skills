@@ -27,6 +27,7 @@ obsidian_bridge.py — Obsidian 知识库双向互通、在线端点接入与自
 """
 
 import os
+import re
 import sys
 import json
 import shutil
@@ -231,6 +232,9 @@ def import_skills_from_obsidian(vault_path: Optional[str] = None) -> List[str]:
     imported = []
 
     print(f"[*] 正在从知识库【{target_vault}】扫描具备 #skill 标记的笔记...")
+    failed: List[str] = []
+    seen: Dict[str, str] = {}          # 归一化技能名 → 首个来源笔记，用于暴露撞名
+    collisions: List[str] = []
     for md_file in target_vault.rglob("*.md"):
         if any(part.startswith(".") for part in md_file.parts):
             continue
@@ -248,9 +252,20 @@ def import_skills_from_obsidian(vault_path: Optional[str] = None) -> List[str]:
                 if not skill_name:
                     continue
 
+                # 撞名检测：归一化会把 "My Skill" 与 "My-Skill" 都变成 my-skill，
+                # 后写的会静默覆盖先写的，而两条都报「导入成功」——
+                # 使用者以为两个技能都进来了。必须点名说清楚。
+                if skill_name in seen:
+                    collisions.append(
+                        "%s ← '%s' 与 '%s'（后者覆盖前者）"
+                        % (skill_name, seen[skill_name], md_file.name))
+                else:
+                    seen[skill_name] = md_file.name
+
                 dest_dir = CUSTOM_SKILLS_DIR / skill_name
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 dest_skill_md = dest_dir / "SKILL.md"
+                existed = dest_skill_md.exists()
 
                 first_line = f"Obsidian 导入技能: {md_file.stem}"
                 lines = [l.strip() for l in text.splitlines() if l.strip() and not l.strip().startswith(("#", "---", "tags:"))]
@@ -258,23 +273,64 @@ def import_skills_from_obsidian(vault_path: Optional[str] = None) -> List[str]:
                     first_line = lines[0][:100]
 
                 clean_text = re.sub(r"^---\s*\n.*?\n---", "", text, flags=re.DOTALL).strip()
+                # description / vault_rel_path 一律用 json.dumps 生成 ——
+                # 它产出的是合法 YAML 双引号标量，会自动转义正文里的引号与反斜杠。
+                # 直接 f'"{值}"' 会把「他说"你好"」这类首行写成非法 YAML，
+                # 后果是该技能的 frontmatter 整块解析不了。
+                desc_yaml = json.dumps(first_line, ensure_ascii=False)
+                rel_yaml = json.dumps(str(md_file.relative_to(target_vault)),
+                                      ensure_ascii=False)
                 formatted_content = f"""---
 name: {skill_name}
-description: "{first_line}"
+description: {desc_yaml}
 metadata:
   source: "obsidian-vault"
-  vault_rel_path: "{md_file.relative_to(target_vault)}"
+  vault_rel_path: {rel_yaml}
 ---
 
 {clean_text}
 """
                 dest_skill_md.write_text(formatted_content, encoding="utf-8")
                 imported.append(skill_name)
-                print(f"  [+] 导入私有 Skill 成功: {skill_name} (来自 {md_file.name})")
+                print(f"  [{'~' if existed else '+'}] "
+                      f"{'更新' if existed else '导入'}私有 Skill 成功: "
+                      f"{skill_name} (来自 {md_file.name})")
         except Exception as e:
+            # 逐条失败必须记账：否则「0 个」会被读成「知识库里本来就没有」，
+            # 而真实原因可能是全部解析失败（本函数就曾因漏 import re 而
+            # 每个文件都抛 NameError，却仍然打印「导入完成」）。
+            failed.append("%s: %s: %s" % (md_file.name, type(e).__name__, e))
             print(f"  [!] 解析笔记 {md_file.name} 失败: {e}")
 
-    print(f"[OK] 导入完成！共计导入 {len(imported)} 个私有技能至 .evolution/custom_skills/")
+    # 汇总：把「没有可导入的」与「全都失败了」区分开，这两件事对使用者
+    # 的意义完全不同，不能共用同一句话。
+    if failed:
+        print(f"[!] 有 {len(failed)} 个笔记解析失败（未导入）：", file=sys.stderr)
+        for item in failed[:5]:
+            print(f"      {item}", file=sys.stderr)
+        if len(failed) > 5:
+            print(f"      …另有 {len(failed) - 5} 个", file=sys.stderr)
+    if collisions:
+        print(f"[!] 有 {len(collisions)} 组技能名撞名（归一化后同名，后者已覆盖前者）：",
+              file=sys.stderr)
+        for item in collisions:
+            print(f"      {item}", file=sys.stderr)
+        print("      若要两个都保留，请把笔记文件名改成归一化后不相同的名字。",
+              file=sys.stderr)
+
+    if imported:
+        # 报「唯一技能数」而不是「导入动作次数」：撞名时同一次运行会出现重复名字，
+        # 按 len(imported) 报会说出「4 个技能」而磁盘上只有 3 个 —— 数字失实
+        # 比不报更糟，使用者会拿它去对账。
+        uniq = len(set(imported))
+        extra = (f"（另有 {len(imported) - uniq} 次为同名覆盖，见上）"
+                 if len(imported) > uniq else "")
+        print(f"[OK] 导入完成！知识库中现有 {uniq} 个私有技能（{CUSTOM_SKILLS_DIR}）{extra}")
+    elif failed:
+        print(f"[FAIL] 未导入任何技能：{len(failed)} 个候选笔记全部解析失败"
+              f"（原因见上）", file=sys.stderr)
+    else:
+        print(f"[OK] 知识库中未发现带 #skill / #agent-skill 标记的笔记，无需导入。")
     return imported
 
 
