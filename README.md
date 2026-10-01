@@ -36,6 +36,7 @@ auto-skills/
 ├── LICENSE                 # MIT 开源协议
 ├── .gitignore              # Git 忽略配置 (包含 .evolution 私有进化区保护)
 ├── .gitattributes          # 统一行尾为 LF (防 Windows autocrlf 把检出改成 CRLF)
+├── requirements.txt      # Python 运行时依赖 (PyYAML / pymysql / cryptography)
 ├── config/                 # 统一配置目录 (首次下载所有细节字段全为空)
 │   ├── config.yaml         # 默认空白配置文件模板
 │   ├── config.example.yaml # 完整配置说明与注释范本
@@ -62,6 +63,7 @@ auto-skills/
 │   ├── hk_channel.py       # 远端主机自愈通道（直连 ↔ 国内跳板自动切换）
 │   ├── hk_link_live.py     # Hermes→本地节点链路端到端在线检测与自检
 │   ├── _test_hk_channel.py # 自愈通道回归测试（mock ssh）
+│   ├── _test_deploy_guards.py # 回归：凭据清理的链接/副本两分支（含变异检查）
 │   └── _test_hk_link_live.py # 本地节点链路自检单测（mock pm2 与 gateway）
 ├── tools/                  # 内部收拢的 44 大核心专业工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（第0步）
