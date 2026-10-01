@@ -37,9 +37,15 @@ PASS, FAIL = [], []
 
 
 def check(name, ok, detail=""):
+    """detail 只在失败时打印 —— 它是「为什么不行」的说明。
+
+    曾经无条件打印，于是写死的文案在通过时会出现自相矛盾的输出
+    （PASS 却显示「被抢走了」「被误删」）。误导性的测试输出会侵蚀信任：
+    真需要看它的时候，人会先怀疑是不是又写错了。
+    """
     (PASS if ok else FAIL).append(name)
     print("  [%s] %s%s" % ("PASS" if ok else "FAIL", name,
-                           ("  —— " + str(detail)[:150]) if detail else ""))
+                           ("  —— " + str(detail)[:150]) if (detail and not ok) else ""))
 
 
 def _try_acquire(mutex):
@@ -155,6 +161,54 @@ def main():
         check("该场景给出可执行的错误说明（含 pid 与处置建议）",
               ("pid=" in msg and "删除" in msg) if msg else False, msg[:100])
         h.__exit__(None, None, None)
+
+        # ---- 9. gc（僵尸锁回收）不得误删活跃任务 ----
+        #
+        # 原实现是 `data.get("expires_at_ts", 0)`：字段缺失时当 0，也就是
+        # 「早已过期」→ 一个刚创建、只是缺该字段的锁被**立刻删掉**，还打印
+        # 「已清理过期僵尸任务锁」（这句是假的）。后果是静默拆掉一个活跃
+        # 任务的互斥保护，随后别的 Agent 就能认领同一任务。
+        # 现在退回「按文件年龄 + 默认租约」判定：真老的仍回收，新建的不误删。
+        _, locks_dir = nm.get_agent_paths(pathlib.Path(tmp))
+        d1 = locks_dir / "task_T-GC-NEW.json"
+        d1.write_text(json.dumps({"task_id": "T-GC-NEW",
+                                  "holder_id": "NM-CODE-901"}), encoding="utf-8")
+        nm.clean_stale_locks(pathlib.Path(tmp))
+        check("gc 不删「缺 expires_at_ts 的新锁」（原实现会立刻删）",
+              d1.exists(), "被误删 —— 活跃任务的互斥保护被静默拆除")
+        if d1.exists():
+            d1.unlink()
+
+        d2 = locks_dir / "task_T-GC-OLD.json"
+        d2.write_text(json.dumps({"task_id": "T-GC-OLD",
+                                  "holder_id": "NM-CODE-902"}), encoding="utf-8")
+        ancient2 = time.time() - (nm.DEFAULT_LEASE_MINUTES * 60 + 3600)
+        os.utime(d2, (ancient2, ancient2))
+        nm.clean_stale_locks(pathlib.Path(tmp))
+        check("gc 仍能回收「缺字段但确实很老」的锁（不会永久阻塞）",
+              not d2.exists(), "没回收 —— 会永久阻塞后续认领")
+
+        d3 = locks_dir / "task_T-GC-JUNK.json"
+        d3.write_text(json.dumps({"task_id": "T-GC-JUNK", "holder_id": "NM-CODE-903",
+                                  "expires_at_ts": "not-a-number"}), encoding="utf-8")
+        nm.clean_stale_locks(pathlib.Path(tmp))
+        check("gc 不把「字段是垃圾值」的锁当已过期",
+              d3.exists(), "被误删")
+        if d3.exists():
+            d3.unlink()
+
+        d4 = locks_dir / "task_T-GC-LIVE.json"
+        d4.write_text(json.dumps({"task_id": "T-GC-LIVE", "holder_id": "NM-CODE-904",
+                                  "expires_at_ts": time.time() + 600}),
+                      encoding="utf-8")
+        d5 = locks_dir / "task_T-GC-EXP.json"
+        d5.write_text(json.dumps({"task_id": "T-GC-EXP", "holder_id": "NM-CODE-905",
+                                  "expires_at_ts": time.time() - 10}),
+                      encoding="utf-8")
+        nm.clean_stale_locks(pathlib.Path(tmp))
+        check("gc 保留未过期锁、回收已过期锁（正常路径未被改坏）",
+              d4.exists() and not d5.exists(),
+              "未过期存在=%s 已过期存在=%s" % (d4.exists(), d5.exists()))
 
         # ---- 8. 变异检查：把存活判定废掉，第 2 条必须变红 ----
         _orig_alive = nm._pid_alive
