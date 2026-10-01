@@ -1,0 +1,22 @@
+# auto-skills 运行时依赖
+#
+# 为什么需要这个文件（2026-10-01 补）：仓库此前只在内联注释里写着
+# `pip install pyyaml pymysql` / `pip install pymysql cryptography`，
+# 没有 requirements.txt / pyproject.toml —— 公开仓库 fresh clone 的人
+# 无法知道要装什么，首次运行必报 ModuleNotFoundError。
+#
+# 依赖只有三条，全部是必要项（AST 全量扫描 scripts/*.py 确认，
+# 其余 import 均为项目内模块）：
+#
+#   PyYAML       config_manager.py 解析 config.yaml / .evolution/config.yaml
+#   pymysql      db_sync.py 落库链路（MySQL）
+#   cryptography pymysql 的 caching_sha2_password 认证需要
+#
+# 版本用下限而非钉死：钉死会让下游无法升级安全补丁。
+PyYAML>=6.0
+pymysql>=1.0.2
+cryptography>=41.0
+
+# 开发/测试不需要额外依赖：scripts/_test_*.py 全部只用标准库
+# （ast/sqlite3/unittest 均为 stdlib），`python scripts/_test_registry.py`
+# 即可跑，无需 pytest。
