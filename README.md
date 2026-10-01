@@ -66,6 +66,7 @@ auto-skills/
 │   ├── _test_deploy_guards.py # 回归：凭据清理的链接/副本两分支（含变异检查）
 │   ├── untrusted_text.py    # 不可信文本消毒：注入形状检测 + 零宽/控制字符剥离 + 边界围栏
 │   ├── _test_untrusted_text.py # 回归：34 项（命中 11 条真实注入样本 / 不误报 8 条正常技术文本 / 变异检查）
+│   ├── _test_conn_reuse.py  # 回归：连接复用守卫（复用确发生 / 池不泄漏 / 包装透传 / doctor 绕过池 / 变异检查）
 │   └── _test_hk_link_live.py # 本地节点链路自检单测（mock pm2 与 gateway）
 ├── tools/                  # 内部收拢的 44 大核心专业工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（第0步）

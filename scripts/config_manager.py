@@ -6,6 +6,7 @@ config_manager.py — auto-skills 统一配置读写与状态管理模块 (v3.0)
 管理 `config/config.yaml` 的加载、保存、迁移与首次配置检测。
 """
 
+import copy
 import os
 import sys
 from pathlib import Path
@@ -22,6 +23,40 @@ CONFIG_DIR = SKILL_ROOT / "config"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 EXAMPLE_CONFIG = CONFIG_DIR / "config.example.yaml"
 EVOLUTION_OVERRIDE = SKILL_ROOT / ".evolution" / "config.yaml"
+
+# ---- 进程内配置缓存 ----
+# 为什么需要：get_value() 原本每次都完整走 load_config()（mkdir + 2 次文件读
+# + 2 次 YAML 解析 + 2 次 deep_merge），实测 6.46ms/次；而一次路由分发要调
+# get_value 17-18 次 —— 光配置读取就 ~110ms，比路由本身的工作还重（实测
+# fast path 全程 1584ms 里配置读取占相当一块）。
+#
+# 缓存键取两份配置文件（基础层 + 覆盖层）的 (mtime_ns, size) 快照：
+# 任一文件被改动即自动失效，因此长驻进程（定时器/看门狗）也能立刻看到
+# 配置变更，不会读到陈旧值 —— 这是不用「无条件永久缓存」的原因。
+#
+# 取值一律返回 deepcopy：set_value 会原地修改拿到的 dict，
+# 若直接把缓存对象交出去，一次 set_value 就会污染缓存。
+_CACHE: Dict[str, Any] = {"key": None, "cfg": None}
+
+
+def _file_sig(p: Path):
+    """文件签名 (mtime_ns, size)；不存在返回 None。"""
+    try:
+        st = p.stat()
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _config_sig():
+    """两份配置文件的联合签名，作为缓存有效性判据。"""
+    return (_file_sig(CONFIG_FILE), _file_sig(EVOLUTION_OVERRIDE))
+
+
+def invalidate_config_cache() -> None:
+    """写配置后必须调它。save_config 已内置调用，正常无需手工调。"""
+    _CACHE["key"] = None
+    _CACHE["cfg"] = None
 
 
 def deep_merge(base: dict, override: dict) -> dict:
@@ -86,6 +121,11 @@ def get_default_config() -> Dict[str, Any]:
 
 
 def load_config() -> Dict[str, Any]:
+    # 缓存命中：两份配置文件签名未变就直接返回副本（见文件头 _CACHE 说明）。
+    sig = _config_sig()
+    if _CACHE["cfg"] is not None and _CACHE["key"] == sig:
+        return copy.deepcopy(_CACHE["cfg"])
+
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     if not CONFIG_FILE.exists():
         if EXAMPLE_CONFIG.exists():
@@ -132,7 +172,11 @@ def load_config() -> Dict[str, Any]:
             print(f"[WARN] 解析私有覆盖层 {EVOLUTION_OVERRIDE} 失败: {e}")
             print("       将只用基础层配置；改动不会生效。")
 
-    return base
+    # 落缓存。签名叫「现在」重取一次：首次初始化可能刚创建了配置文件，
+    # 用入口处那份签名会把「文件不存在」记成缓存键，导致下次永远不命中。
+    _CACHE["cfg"] = base
+    _CACHE["key"] = _config_sig()
+    return copy.deepcopy(base)
 
 
 def save_config(cfg: Dict[str, Any], target: str = "override") -> bool:
@@ -161,6 +205,9 @@ def save_config(cfg: Dict[str, Any], target: str = "override") -> bool:
         else:
             EVOLUTION_OVERRIDE.parent.mkdir(parents=True, exist_ok=True)
             EVOLUTION_OVERRIDE.write_text(text, encoding="utf-8")
+        # 写完必须让缓存过期：同进程内紧接着的读取否则会拿到旧值。
+        # （mtime 签名通常也能兜住，但同一秒内的连续写可能 mtime 不变。）
+        invalidate_config_cache()
         return True
     except Exception as e:
         print(f"[ERROR] 保存配置失败 (target={target}): {e}")
