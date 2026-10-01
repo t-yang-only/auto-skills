@@ -358,6 +358,28 @@ python scripts/wizard_setup.py --check-deploy # 只检查（陈旧/失效/含凭
 
 每条用例的通过/失败都在输出里逐项列出，**所以这里不写断言条数** —— 条数是实现细节，写进文档就会长期脱节（本仓库已因此改过多次）。
 
+### 新增文件后必须同步三处（否则测试直接红）
+
+本轮实测三次踩到：新增 `scripts/*.py` 后只提交代码，`_test_registry` 与
+`_test_doc_tree_guards` 立刻报「README/SKILL 脚本树未列出该文件」。
+
+```bash
+# ① 在 README.md 与 SKILL.md 的 scripts 目录树里各加一行
+# ② 若新增的是 _test_*.py，说明.md 的工具表也要登记
+# ③ 改完仓库内容必须重建快照，否则报「快照陈旧」
+python scripts/wizard_setup.py --deploy
+```
+
+### 写正则的两个坑（都实测踩过）
+
+1. **零宽/控制字符必须写 `\x` / `\u` 转义，不能写字面字符。**
+   字面零宽字符会被写进源文件变成不可打印字节，报
+   `SyntaxError: source code string cannot contain null bytes`；
+   且一次行内替换可能留下**孤儿残片行**（整行只剩 `\x0e-\x1f\x7f]"）` 这种断尾）。
+   正确写法：`re.compile("[\u200b-\u200f\u202a-\u202e]")`。
+2. **中文语序自由，「忽略之前的指令」和「指令被忽略」都要认。**
+   单向正则会漏报；漏报比误报危险得多（误报只是噪音，漏报是把注入当正常待办）。
+
 ### 部署同步为什么是独立一环
 
 `connect_agents()` 只在**首次向导**时执行一次，仓库之后每次提交都不会再分发。
