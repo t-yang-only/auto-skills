@@ -598,8 +598,13 @@ def main():
                 _checked += 1
                 _is_link = _t.is_symlink() or wizard_setup._is_junction(_t)
                 # 链接形态单独判定：它与快照是同一份内容，本来就不该与真源
-                # 逐个文件相等（快照排除了凭据与 .evolution）。判据改为
-                # 「是链接 + 目标可达 + 能读到 SKILL.md + 凭据不可达」。
+                # 逐个文件相等（快照排除了 .evolution 与运行期产物）。
+                #
+                # ⚠️ 这里**刻意不判「凭据不可达」**。凭据在链接路径下本来就是
+                # 可读的（实测三个根均 Test-Path=True）——它们被硬链接进快照，
+                # 否则从链接根跑 db_sync 会因找不到密码文件而让落库整链失效。
+                # 凭据的正确判据见下方「不与真源散开」（必须是硬链接、不能是
+                # 拷贝），别把这条改成「读不到」——那会直接打坏落库链路。
                 if _is_link:
                     _linked += 1
                     _who = _base.parent.name or str(_base)
