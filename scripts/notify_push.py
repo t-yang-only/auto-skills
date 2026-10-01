@@ -490,15 +490,34 @@ def notify_task_complete(
     lines.append("\n---\n*由 auto-skills 多渠道聚合消息同步中心自动化广播*")
     desp = "\n".join(lines)
 
-    # 临时覆盖 Server酱 key (兼容旧参数)
+    # 用传入的 key 覆盖 Server酱配置（注意：会落盘，见 apply_sendkey_override）
     if sendkey:
+        apply_sendkey_override(sendkey)
+
+    print(f"[*] 正在为项目【{project_name}】执行多渠道消息聚合广播...")
+    return broadcast_message(title=title, desp=desp, tags=tags)
+
+
+def apply_sendkey_override(sendkey: Optional[str]) -> bool:
+    """用传入的 key 覆盖 Server酱配置。
+
+    ⚠️ 这是**写入配置**，不是「只在本次生效」—— 函数名与 CLI 帮助原先都写作
+    「临时」，读起来像只有本次调用受影响，实际会落盘。保留落盘行为（配置一次
+    即可复用是它的用处），但把说法改成与实现一致，避免使用者以为自己只是
+    做了一次性覆盖、事后发现配置被改了。
+    """
+    if not sendkey:
+        return False
+    try:
         cfg = load_channels_config()
         if "serverchan" in cfg.get("channels", {}):
             cfg["channels"]["serverchan"]["sendkey"] = sendkey
             save_channels_config(cfg)
-
-    print(f"[*] 正在为项目【{project_name}】执行多渠道消息聚合广播...")
-    return broadcast_message(title=title, desp=desp, tags=tags)
+            return True
+    except Exception as e:
+        print(f"[!] 覆盖 Server酱 SendKey 失败：（{type(e).__name__}: {e}）",
+              file=sys.stderr)
+    return False
 
 
 # ==============================================================================
@@ -593,9 +612,11 @@ def main():
     parser = argparse.ArgumentParser(description="多渠道消息同步与任务自动化推送总控中心")
     parser.add_argument("-t", "--title", default="大型任务执行完毕", help="通知标题")
     parser.add_argument("-d", "--desp", default="", help="通知正文 (支持 Markdown)")
-    parser.add_argument("-p", "--project", default="auto-skills", help="项目名称")
+    parser.add_argument("-p", "--project", default=None,
+                        help="项目名称；给了就把标题变成【项目】标题（不给则保持原样）")
     parser.add_argument("--tags", default="任务完成|报告", help="Server酱分类标签")
-    parser.add_argument("-k", "--sendkey", default=None, help="临时指定 Server酱 SendKey")
+    parser.add_argument("-k", "--sendkey", default=None,
+                        help="覆盖 Server酱 SendKey —— 注意这会**写入配置**（不是一次性生效）")
     parser.add_argument("--channel", help="只推送给指定渠道 (缺省广播至全部启用的渠道)")
 
     # 配置选项
@@ -642,7 +663,15 @@ def main():
     if not args.desp:
         args.desp = f"任务【{args.title}】自动化流水线已执行完毕，各项指标检查通过。"
 
-    broadcast_message(title=args.title, desp=args.desp, tags=args.tags, target_channel=args.channel)
+    # 这两个开关此前是**死的**：main 直接调 broadcast_message，绕过了
+    # 接收它们的 notify_task_complete，于是 `-p` / `-k` 被静默忽略 ——
+    # `-k` 尤其危险：使用者以为发去自己指定的 key，实际发去配置里那个。
+    if args.sendkey:
+        apply_sendkey_override(args.sendkey)
+    title = f"【{args.project}】{args.title}" if args.project else args.title
+
+    broadcast_message(title=title, desp=args.desp, tags=args.tags,
+                      target_channel=args.channel)
 
 
 if __name__ == "__main__":
