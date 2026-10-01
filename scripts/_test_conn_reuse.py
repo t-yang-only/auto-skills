@@ -30,9 +30,15 @@ PASS, FAIL = [], []
 
 
 def check(name, ok, detail=""):
+    """detail 只在失败时打印 —— 它是「为什么不行」的说明。
+
+    曾经无条件打印，于是写死的文案在通过时会出现自相矛盾的输出
+    （PASS 却显示「居然成功了」）。误导性的测试输出会侵蚀信任，
+    让人在真正需要看它的时候不再相信它。
+    """
     (PASS if ok else FAIL).append(name)
     print("  [%s] %s%s" % ("PASS" if ok else "FAIL", name,
-                           ("  —— " + str(detail)[:140]) if detail else ""))
+                           ("  —— " + str(detail)[:140]) if (detail and not ok) else ""))
 
 
 def main():
@@ -67,6 +73,13 @@ def main():
         return _orig(*a, **k)
 
     ds._get_db_connection_raw = counting_raw
+
+    # 关掉「取连接时顺手补传暂存」——它与连接复用是两件独立的事，但补传
+    # 自身会再去取连接，会污染本测试的「新建了几次」计数。
+    # 实测踩过：上一次运行留下的暂存记录让「只新建 1 次」变成 2 次而报红，
+    # 看上去像复用失效，其实是测试没有隔离被测对象。
+    saved_replay = ds._maybe_replay
+    ds._maybe_replay = lambda: None
 
     try:
         ds.close_db_pool()
@@ -141,8 +154,49 @@ def main():
                          and "conn = get_db_connection()" not in body)
         check("doctor 连通性自检绕过连接池（否则会报假 OK）", ok_struct)
 
+        # ---- 8. 坏连接绝不能留在池里（一个非常容易踩的陷阱）----
+        #
+        # 现状：「取出的连接用完自己关」这个约定，在失败路径上**没有**被执行
+        # （异常直接跳到 except，conn.close() 被跳过），于是坏连接既没归还
+        # 也没留在池里 —— 下一次调用会新建连接，自动恢复。
+        #
+        # 这个「正确」是脆弱的：只要有人后来补一句 `finally: conn.close()`
+        # 做清理（一个很自然的想法），坏连接就会被归还进池子，之后**每次
+        # 写库都失败**，直到 30 秒闲置检测才自愈 —— 一次 30 秒的网络抖动
+        # 会被放大成持续几十秒的连锁失败。
+        #
+        # 所以这里把它固化成判据：换实现可以，但「失败后池里不能有坏连接」
+        # 这条不变式必须继续成立。
+        #
+        # 注意：本条会让探针写入真实暂存（失败即暂存本来就是设计），
+        # 故先存快照、结束后整体还原，不给真实数据留垃圾。
+        spool_before = ds._read_spool()
+        try:
+            ds.close_db_pool()
+            warm = ds.get_db_connection()
+            warm.close()                       # 归还 → 池里有活连接
+            raw_in_pool = ds._POOL.get("conn")
+            check("装置：池中确有连接可被破坏", raw_in_pool is not None)
+            raw_in_pool.close()                # 模拟半开／服务端掐连接
+
+            ok = ds.record_tool_trace_db("auto-skills", "_test_conn_reuse",
+                                         action="deadpool-probe", user_query="probe",
+                                         stage="test", duration_ms=1)
+            check("坏连接上的写库会失败（装置有效）", ok is False,
+                  "居然成功了 —— 装置没造出坏连接，本条不具判别力")
+            check("失败后池中不残留坏连接（下一次会自动新建并恢复）",
+                  ds._POOL.get("conn") is None,
+                  "坏连接仍在池里 —— 后续每次写库都会继续失败")
+            check("失败的写入进了本地暂存（数据不丢）",
+                  len(ds._read_spool()) > len(spool_before),
+                  "暂存 %d → %d 条" % (len(spool_before), len(ds._read_spool())))
+        finally:
+            ds._write_spool(spool_before)      # 还原，不留探针垃圾
+            ds.close_db_pool()
+
     finally:
         ds._get_db_connection_raw = _orig
+        ds._maybe_replay = saved_replay
         try:
             ds.close_db_pool()
         except Exception:
