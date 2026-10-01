@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""nm_register 全部子命令的冒烟测试 —— 最广也最快的一层回归守卫。
+
+为什么需要
+==========
+其余测试各自盯着一个契约（互斥、并发、失败容错…），但没有一条覆盖
+「每个子命令还能不能跑」。
+
+2026-10-02 我改了 FileMutex、把落库移出临界区、改了 gc 的过期判据、
+调了 claim/done 的结构 —— 这些改动横跨几乎所有子命令，而当时唯一的
+验证是「跑一下看看吧」。这个文件把那次的临时检查固定下来。
+
+它盯三件事，都是 agent 日常真正会踩的：
+  1. **不能有裸 traceback**。子命令抛栈对使用者毫无帮助，等于没做错误处理。
+  2. **退出码要能区分结果**。`check-file` 有冲突必须非零（否则调用方会
+     以为可以安全编辑），无冲突必须为零。
+  3. **正向路径要有可读的输出**，不能静默成功。
+
+刻意不写死输出文案的全文，只断言「含某个关键标记」与「退出码」——
+文案会改，行为契约不该跟着漂。
+"""
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+SCRIPT = Path(__file__).resolve().parent / "nm_register.py"
+PASS, FAIL = [], []
+
+
+def check(name, ok, detail=""):
+    (PASS if ok else FAIL).append(name)
+    print("  [%s] %s%s" % ("PASS" if ok else "FAIL", name,
+                           ("  —— " + str(detail)[:150]) if (detail and not ok) else ""))
+
+
+def run(root, args, timeout=90):
+    p = subprocess.run([sys.executable, str(SCRIPT), "--root", root] + args,
+                       capture_output=True, encoding="utf-8", errors="replace",
+                       timeout=timeout)
+    return p.returncode, (p.stdout or "") + (p.stderr or "")
+
+
+def main():
+    if not SCRIPT.exists():
+        print("  [SKIP] 找不到 %s" % SCRIPT)
+        print("\nRESULT: SKIP (1/1)")
+        return 0
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # 装置：先认领一个任务，后续子命令才有东西可操作
+        rc, out = run(tmp, ["claim", "--task-id", "T-SMOKE",
+                            "--task", "冒烟测试用任务",
+                            "--client", "S", "--files", "scripts/smoke_target.py"])
+        check("装置：claim 成功（否则后续判据不具判别力）",
+              rc == 0 and "认领成功" in out, "rc=%s" % rc)
+
+        cases = [
+            # (名称, 参数, 期望rc, 必须出现的标记)
+            ("board 能列出看板", ["board"], 0, "看板"),
+            ("whoami 能报当前身份", ["whoami"], 0, "agent_word"),
+            ("log 能列工作日志", ["log", "--limit", "5"], 0, "登记"),
+            ("renew 能续租", ["renew", "--task-id", "T-SMOKE",
+                             "--extend", "10"], 0, "续期"),
+            ("gc 能跑（无可清理时也要正常收尾）", ["gc"], 0, "僵尸锁"),
+            ("check-file 检出已占用文件", ["check-file",
+                                        "--files", "scripts/smoke_target.py"], 1, "冲突"),
+            ("check-file 对空闲文件放行", ["check-file",
+                                        "--files", "scripts/definitely_free.py"], 0, "检查通过"),
+            ("release 能释放", ["release", "--task-id", "T-SMOKE"], 0, "释放"),
+        ]
+
+        for name, args, want_rc, marker in cases:
+            rc, out = run(tmp, args)
+            check(name, rc == want_rc and marker in out,
+                  "rc=%s(期望%s) 含'%s'=%s" % (rc, want_rc, marker, marker in out))
+
+        # 全部子命令都不得抛裸 traceback
+        # （标签带上参数，否则两条 check-file 用例会同名 —— 真失败时分不清是哪条）
+        for name, args, _, _ in cases:
+            rc, out = run(tmp, args)
+            check("%s %s 不抛裸 traceback" % (args[0], " ".join(args[1:])[:24]),
+                  "Traceback (most recent call last)" not in out,
+                  out[-160:] if "Traceback" in out else "")
+
+        # 重复操作：同一任务连释放两次，第二次应明确说「无活跃锁」而非报错
+        rc, out = run(tmp, ["release", "--task-id", "T-SMOKE"])
+        check("重复释放给出明确提示（幂等、不崩）",
+              rc == 0 and ("并无活跃锁" in out or "已释放" in out),
+              "rc=%s %s" % (rc, out.strip()[:100]))
+
+        # 无参数运行：应给帮助而不是静默退出或抛栈
+        rc, out = run(tmp, [])
+        check("无参数运行给出帮助（不静默、不抛栈）",
+              "usage" in out.lower() and "Traceback" not in out,
+              "rc=%s 输出长度=%d" % (rc, len(out)))
+
+    print()
+    total = len(PASS) + len(FAIL)
+    print("RESULT: %s (%d/%d)" % ("ALL_PASS" if not FAIL else "HAS_FAIL",
+                                  len(PASS), total))
+    return 1 if FAIL else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
