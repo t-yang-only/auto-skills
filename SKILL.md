@@ -65,6 +65,8 @@ auto-skills/
 │   ├── hk_link_live.py     # Hermes→本地节点链路端到端在线检测与自检
 │   ├── _test_hk_channel.py # 自愈通道回归测试（mock ssh）
 │   ├── _test_deploy_guards.py # 回归：凭据清理的链接/副本两分支（含变异检查）
+│   ├── untrusted_text.py    # 不可信文本消毒：注入形状检测 + 零宽/控制字符剥离 + 边界围栏
+│   ├── _test_untrusted_text.py # 回归：34 项（命中真实注入样本 / 不误报正常技术文本 / 变异检查）
 │   └── _test_hk_link_live.py # 本地节点链路自检单测（mock pm2 与 gateway）
 ├── tools/                  # 内部完全自洽收拢的 44 大核心通用工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（绝对第0步）
