@@ -29,6 +29,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -377,6 +378,10 @@ def get_all_members() -> List[Tuple[str, str, str, str, str, str]]:
 
 def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
     q = query
+    # 路由决策耗时基准。三条落库点（fast / full / cmd_trace）共用它——
+    # 以前它们直接调 record_tool_trace_db 而不传 duration_ms，走默认值 0，
+    # 于是 experience_mining 的「平均耗时」恒为 0.0ms（库里 489 行全 0）。
+    _t0 = time.time()
     persona_off = bool(PERSONA_OFF.search(q))
     tier, tier_reason = classify_task_tier(q, explicit_mode=mode)
 
@@ -433,7 +438,9 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
             db_sync.record_tool_trace_db(
                 "auto-skills", "auto_router", action="route_dispatch",
                 user_query=q, stage="pre-flight", input_params={"mode": mode},
-                output_summary=_trace_summary(plan_fast), project_root=str(Path.cwd()))
+                output_summary=_trace_summary(plan_fast),
+                duration_ms=int((time.time() - _t0) * 1000),
+                project_root=str(Path.cwd()))
         except Exception as _e:
             _db_note("route_trace(fast)", _e)
         return plan_fast
@@ -548,7 +555,9 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
         db_sync.record_tool_trace_db(
             "auto-skills", "auto_router", action="route_dispatch",
             user_query=q, stage="pre-flight", input_params={"mode": mode},
-            output_summary=_trace_summary(plan_result), project_root=str(Path.cwd()))
+            output_summary=_trace_summary(plan_result),
+            duration_ms=int((time.time() - _t0) * 1000),
+            project_root=str(Path.cwd()))
     except Exception as _e:
         _db_note("route_trace(full)", _e)
 
