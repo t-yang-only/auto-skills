@@ -73,6 +73,7 @@ auto-skills/
 │   ├── _test_cli_smoke.py   # 回归：nm_register 全部子命令冒烟（不抛裸栈 / 退出码可判别 / check-file 两分支）
 │   ├── _test_silent_failures.py # 回归：静默失败守卫（失败必须出声且保持 best-effort；正常路径不得有噪音）
 │   ├── _test_obsidian_import.py # 回归：知识库导入技能（模块可用 / frontmatter 引号安全 / 撞名点名 / 全失败必报 FAIL）
+│   ├── _test_undefined_names.py # 回归：静态守卫——函数里用了但模块内从未定义/导入的名字（自带变异检查）
 │   └── _test_hk_link_live.py # 本地节点链路自检单测（mock pm2 与 gateway）
 ├── tools/                  # 内部完全自洽收拢的 44 大核心通用工具集
 │   ├── using-superpowers/  # 【流程基座】动手前技能全盘扫描（绝对第0步）
