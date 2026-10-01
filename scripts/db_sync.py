@@ -837,13 +837,27 @@ def _load_health() -> Dict[str, Any]:
 
 
 def _save_health(h: Dict[str, Any]) -> None:
+    """写健康状态。**失败必须出声**，见下方说明。
+
+    为什么不静默：这个文件承载熔断器状态（连续失败次数、熔断解除时刻）。
+    每次调用都是新进程，状态只能靠落盘跨进程生效 —— 写得进去，熔断才有意义。
+    写不进去而一声不吭，等于熔断器静默失效：库不可达时每次落库都要干等
+    8 秒 TCP 超时，而那正是熔断要避免的事，使用者却只看到「变慢了」。
+
+    只警告不抛：本函数在失败路径上被调用（_health_record_failure），
+    抛异常会把原始错误盖掉，反而更难排查。
+    """
     p = _health_file()
     tmp = p.parent / (p.name + ".tmp")
     try:
+        tmp.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(json.dumps(h, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(_health_file())
-    except Exception:
-        pass
+    except Exception as e:
+        print("[!] 熔断器状态写入失败（熔断将无法跨进程生效）：%s  (%s: %s)"
+              % (p, type(e).__name__, e), file=sys.stderr)
+        print("    影响：库不可达时每次落库都会干等连接超时，熔断不会打开。",
+              file=sys.stderr)
 
 
 # ---------------------------------------------------------------- 通知（可选）
@@ -980,7 +994,14 @@ def _spool_on_failure(stream: str, fn_name: str, args, kwargs, exc: BaseExceptio
 
 
 def _read_spool() -> List[Dict[str, Any]]:
+    """读暂存队列。
+
+    损坏的行不能静默跳过：暂存是「数据不丢」的最后一道防线，而调用方
+    （spool_replay / spool_purge_expired）读完会**整体重写**这个文件 ——
+    跳过一行就等于在重写时把它永久删掉。使用者必须知道丢了几条。
+    """
     out: List[Dict[str, Any]] = []
+    bad = 0
     try:
         with open(_spool_file(), "r", encoding="utf-8") as f:
             for line in f:
@@ -989,11 +1010,15 @@ def _read_spool() -> List[Dict[str, Any]]:
                     try:
                         out.append(json.loads(line))
                     except Exception:
-                        pass
+                        bad += 1
     except FileNotFoundError:
         pass
     except Exception as e:
         _log_db_error("_read_spool", e)
+    if bad:
+        print("[!] 暂存队列有 %d 行无法解析，已跳过（这些记录不会被补传）。"
+              % bad, file=sys.stderr)
+        print("    文件：%s" % _spool_file(), file=sys.stderr)
     return out
 
 
