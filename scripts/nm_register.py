@@ -55,6 +55,11 @@ except Exception:
 AGENT_DIR_NAME = "agent_word"
 LOCKS_DIR_NAME = ".locks"
 
+# 默认租约时长（分钟）。原先这个数字在函数默认值与 CLI 默认值里各写了一遍，
+# 而 clean_stale_locks 的兜底判据也需要它 —— 三处不一致会让「多久算过期」
+# 在不同路径上给出不同答案。收敛成一个常量。
+DEFAULT_LEASE_MINUTES = 45
+
 REGISTER_HEADER = (
     "| 编号 | 任务ID | Agent/客户端 | 任务目标 | 修改内容 | API 变更 | 获取/新增文件 | "
     "使用 Skill | 使用 MCP | 调用工具 | 开始时间 | 完成时间 | 状态 |"
@@ -444,7 +449,7 @@ def claim_task_atomic(
     client: str,
     task_id: Optional[str] = None,
     files: str = "",
-    ttl_minutes: int = 45,
+    ttl_minutes: int = DEFAULT_LEASE_MINUTES,
     force: bool = False
 ) -> Dict[str, Any]:
     """
@@ -929,7 +934,24 @@ def clean_stale_locks(root: Path) -> int:
         for f in locks_dir.glob("task_*.json"):
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
-                if now_ts >= data.get("expires_at_ts", 0):
+                try:
+                    expires_at = float(data.get("expires_at_ts"))
+                except (TypeError, ValueError):
+                    # 字段缺失或不可解析时，**绝不能**当成「早已过期」。
+                    # 实测踩过：一个刚创建、只是缺该字段的锁被 gc 立刻删掉，
+                    # 还打印「已清理过期僵尸任务锁」—— 而它根本不是僵尸。
+                    # 这等于静默拆掉一个活跃任务的互斥保护，随后别的 Agent
+                    # 就能认领同一任务，正是本项目要杜绝的撞车。
+                    # 退回「按文件年龄 + 默认租约」判定：真的老的锁仍能回收，
+                    # 刚建的一定不会误删。
+                    try:
+                        expires_at = f.stat().st_mtime + DEFAULT_LEASE_MINUTES * 60
+                    except OSError:
+                        # 连 mtime 都取不到：不动它，留给人工（宁可留着阻塞，
+                        # 也不误删导致互斥失效）。
+                        continue
+
+                if now_ts >= expires_at:
                     tid = data.get("task_id")
                     holder = data.get("holder_id")
                     f.unlink()
@@ -965,7 +987,8 @@ def main():
     p_claim.add_argument("--task-id", default=None, help="指定任务唯一标识 (如 TASK-001，缺省自动生成)")
     p_claim.add_argument("--client", default="CODE", help="客户端标识 (CODE/CUR/DB/DS)")
     p_claim.add_argument("--files", default="", help="预估修改的文件列表 (逗号分隔)")
-    p_claim.add_argument("--ttl", type=int, default=45, help="租约有效时长分钟 (默认 45)")
+    p_claim.add_argument("--ttl", type=int, default=DEFAULT_LEASE_MINUTES,
+                         help=f"租约有效时长分钟 (默认 {DEFAULT_LEASE_MINUTES})")
     p_claim.add_argument("--force", action="store_true", help="强制抢占接管任务")
 
     # 2. done 任务完成
