@@ -276,7 +276,14 @@ def main():
         print(json.dumps(combined, ensure_ascii=False, indent=2))
         sys.exit(0)
 
-    # 缺省执行 scan
+    if args.scan:
+        scan_and_refresh_all()
+        sys.exit(0)
+
+    # 缺省（不带任何参数）同样执行 scan。
+    # 显式写出 --scan 分支是因为：此前它从不被检查，仅因「缺省也走 scan」
+    # 而**偶然**表现正确 —— 一旦有人在这个位置之前插入别的默认动作，
+    # --scan 就会静默改行为。显式化之后它不再依赖这种巧合。
     scan_and_refresh_all()
 
 
