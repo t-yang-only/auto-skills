@@ -102,15 +102,113 @@ def escape_cell(value: str) -> str:
     return (value or "").replace("|", "\\|").replace("\n", " ").strip()
 
 
+def _pid_alive(pid: int):
+    """进程是否还活着。返回 True / False / None（无法判定）。
+
+    为什么要这个：原来的僵锁回收只看「锁文件 mtime 超过 30 秒」就抢锁，
+    而锁文件在获取时写一次、之后 mtime 永不更新 —— 于是**任何合法持有超过
+    30 秒的操作都会被别人抢锁**，两个 Agent 同时认为自己持有，正是本项目
+    要杜绝的撞车（2026-10-02 已实证复现：A 持有 31 秒后 B 也能拿到锁）。
+
+    有了持有者 pid，「这个锁的主人还在不在」就成了可直接求证的事实，
+    不必再用时长去猜。
+
+    Windows 上绝不能用 os.kill(pid, 0) —— 那会**真的终止目标进程**。
+    必须走 OpenProcess + GetExitCodeProcess。
+    """
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return None
+    if pid <= 0:
+        return None
+
+    if os.name == "nt":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            h = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not h:
+                err = ctypes.get_last_error()
+                # 87 = ERROR_INVALID_PARAMETER：该 pid 不存在 → 确实死了。
+                # 其它错误（如 5 拒绝访问）无法判定，返回 None 走保守路径。
+                return False if err == 87 else None
+            try:
+                code = wintypes.DWORD()
+                if k32.GetExitCodeProcess(h, ctypes.byref(code)):
+                    return code.value == STILL_ACTIVE
+                return None
+            finally:
+                k32.CloseHandle(h)
+        except Exception:
+            return None
+
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True          # 存在但没权限发信号 → 活着
+    except Exception:
+        return None
+
+
 class FileMutex:
+    """跨进程/跨客户端安全的原子排他文件锁（基于独占创建机制）。
+
+    锁文件内容是一段自描述的 JSON（pid / token / time / host），
+    它让两件事从「猜」变成「可求证」：
+      · 释放时能确认「这个锁还是我的」—— 原实现无条件 unlink，
+        一旦锁被回收过，释放动作会删掉**别人**的锁，问题级联；
+      · 回收时能确认「原持有者是否还活着」—— 见 _pid_alive。
+
+    兼容旧格式（`pid:123;time:...`）：解析不了时按「无法判定」处理，
+    走保守路径（保留原有的按年龄回收行为），不会因为升级而卡死。
     """
-    跨进程/跨客户端安全的原子排他文件锁 (基于独占创建机制)
-    """
+
+    # 无主的锁（解析不了 / 无法判定持有者存活）至少闲置这么久才回收。
+    # 保留这个门槛是为了维持原行为：老格式锁与异常锁仍能被兜底收掉。
+    MIN_STEAL_AGE = 30.0
+    # 持有者仍活着但锁已经这么老：不再静默抢锁（那会破坏互斥），
+    # 而是报出可执行的错误让人处置。宁可失败，不要错。
+    HARD_LIMIT = 600.0
+
     def __init__(self, lock_path: Path, timeout: float = 10.0, poll_interval: float = 0.1):
         self.lock_path = lock_path
         self.timeout = timeout
         self.poll_interval = poll_interval
         self.acquired = False
+        self.token = f"{os.getpid()}-{time.time():.6f}-{random.randint(0, 1 << 30)}"
+
+    # ---- 锁文件读写 ----
+    def _read_holder(self) -> Optional[Dict[str, Any]]:
+        """读出锁的持有者信息；读不到/格式不认识返回 None。"""
+        try:
+            raw = self.lock_path.read_text(encoding="utf-8")
+        except Exception:
+            return None
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+        # 兼容旧格式 `pid:123;time:1700000000.0`
+        m = re.match(r"pid:(\d+);time:([\d.]+)", raw.strip())
+        if m:
+            return {"pid": int(m.group(1)), "time": float(m.group(2)),
+                    "legacy": True}
+        return None
+
+    def _lock_age(self) -> Optional[float]:
+        try:
+            return time.time() - self.lock_path.stat().st_mtime
+        except Exception:
+            return None
 
     def __enter__(self):
         start = time.time()
@@ -119,44 +217,106 @@ class FileMutex:
             try:
                 # O_CREAT | O_EXCL 在操作系统内核层保证原子性
                 fd = os.open(str(self.lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.write(fd, f"pid:{os.getpid()};time:{time.time()}".encode("utf-8"))
+                os.write(fd, json.dumps({
+                    "pid": os.getpid(), "token": self.token,
+                    "time": time.time(), "host": os.environ.get("COMPUTERNAME", ""),
+                }).encode("utf-8"))
                 os.close(fd)
                 self.acquired = True
                 return self
             except FileExistsError:
-                # 检查是否为超过 30 秒的死锁孤儿锁
-                try:
-                    mtime = self.lock_path.stat().st_mtime
-                    if time.time() - mtime > 30.0:
-                        try:
-                            self.lock_path.unlink()
-                            continue
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                if self._try_reclaim():
+                    continue
 
                 if time.time() - start > self.timeout:
-                    raise TimeoutError(f"获取排他协调锁超时: {self.lock_path}")
+                    raise TimeoutError(self._timeout_detail())
                 time.sleep(self.poll_interval)
 
+    def _timeout_detail(self) -> str:
+        holder = self._read_holder() or {}
+        age = self._lock_age()
+        who = holder.get("pid", "?")
+        return (
+            f"获取排他协调锁超时: {self.lock_path}\n"
+            f"    当前持有者 pid={who}，锁已存在 "
+            f"{'%.0f' % age if age is not None else '?'} 秒。\n"
+            f"    💡 若确认该持有者已异常退出，可删除上面这个锁文件后重试；"
+            f"若它仍在正常运行，请等待其完成（不要手工抢锁，那会造成两个 Agent 同时改同一份文件）。"
+        )
+
+    def _try_reclaim(self) -> bool:
+        """判断并执行僵锁回收。返回 True 表示已回收（调用方应重试获取）。
+
+        三条判定，按可信度从高到低：
+          · 持有者确定已死   → 立即回收（崩溃后能快速自愈）
+          · 持有者确定活着   → **绝不抢**；若锁已极老则报错让人处置
+          · 无法判定         → 沿用按年龄回收（兜底老格式与异常锁）
+        """
+        holder = self._read_holder()
+        age = self._lock_age()
+
+        # 持有者确定已死：立刻回收，不必等年龄门槛
+        if holder and holder.get("pid") is not None:
+            alive = _pid_alive(holder["pid"])
+            if alive is False:
+                return self._unlink_quiet()
+
+            if alive is True:
+                if age is not None and age > self.HARD_LIMIT:
+                    raise TimeoutError(
+                        f"⚠️ 锁 {self.lock_path} 已被持有 {age:.0f} 秒，"
+                        f"但持有者 pid={holder['pid']} 仍然存活。\n"
+                        f"    拒绝自动抢锁：那会让两个 Agent 同时认为自己持有，"
+                        f"造成同一份文件被并发修改。\n"
+                        f"    💡 请先确认该进程是否卡死；确认后可删除该锁文件，"
+                        f"或结束该进程（它退出后锁会被自动回收）。"
+                    )
+                return False     # 活着 → 不抢，继续 poll
+
+        # 无法判定持有者存活（老格式 / 权限不足 / 内容损坏）：按年龄兜底
+        if age is not None and age > self.MIN_STEAL_AGE:
+            return self._unlink_quiet()
+        return False
+
+    def _unlink_quiet(self) -> bool:
+        try:
+            self.lock_path.unlink()
+            return True
+        except Exception:
+            return False
+
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.acquired:
-            try:
-                if self.lock_path.exists():
-                    self.lock_path.unlink()
-            except Exception as e:
-                # 绝不允许静默（2026-10-01 修的 P1）：锁释失败会留下锁文件，
-                # 之后每个 Agent 的 _acquire 都会 poll 到超时才抛
-                # TimeoutError —— 表现为「整套多 Agent 协同卡住」，
-                # 而这里一声不吭就等于把根因藏起来。必须打到 stderr，
-                # 并给出可执行处置（锁路径 + 30 秒后会被僵锁回收兜住）。
-                print("[!] 排他锁释放失败：%s  (%s: %s)" % (self.lock_path,
-                                                          type(e).__name__, e),
+        if not self.acquired:
+            return
+        try:
+            holder = self._read_holder()
+            if holder is not None and holder.get("token") == self.token:
+                self.lock_path.unlink()
+            elif holder is None:
+                # 读不到内容：可能已被回收。不删，宁可留一个会被兜底回收的
+                # 残留，也不误删可能是别人的锁。
+                print("[!] 排他锁释放跳过：锁文件内容已不可读（可能已被回收）：%s"
+                      % self.lock_path, file=sys.stderr)
+            else:
+                # 锁已易主：删它会把别人的互斥保护拆掉。只报告，不动作。
+                print("[!] 排他锁释放跳过：锁 %s 已不属于本进程"
+                      "（当前 token 与持有者不符，pid=%s）。"
+                      % (self.lock_path, holder.get("pid")),
                       file=sys.stderr)
-                print("    该锁残留会让其他 Agent 全部超时；"
-                      "30 秒后僵锁回收会兜底，也可手动删除上述文件。",
+                print("    本进程的任务可能已被僵锁回收，请核对后再继续。",
                       file=sys.stderr)
+        except Exception as e:
+            # 绝不允许静默（2026-10-01 修的 P1）：锁释失败会留下锁文件，
+            # 之后每个 Agent 的 _acquire 都会 poll 到超时才抛
+            # TimeoutError —— 表现为「整套多 Agent 协同卡住」，
+            # 而这里一声不吭就等于把根因藏起来。必须打到 stderr，
+            # 并给出可执行处置（锁路径 + 会被兜底回收）。
+            print("[!] 排他锁释放失败：%s  (%s: %s)" % (self.lock_path,
+                                                      type(e).__name__, e),
+                  file=sys.stderr)
+            print("    该锁残留会让其他 Agent 全部超时；"
+                  "持有者进程退出后会被自动回收，也可手动删除上述文件。",
+                  file=sys.stderr)
 
 
 def get_agent_paths(root: Path) -> Tuple[Path, Path]:
