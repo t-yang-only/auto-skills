@@ -105,3 +105,10 @@ evolution_vault:
 
 agent_connections:
   connected_agents: []
+
+# 远端主机自愈通道（scripts/hk_channel.py）：直连优先、跳板兜底。
+# ⚠️ 真实别名属本机信息，只写进私有层（.evolution/config.yaml），不要写在这里。
+# 未配置时的行为：通道会去连占位符名字，必然失败 —— 请至少配 direct_host。
+hk_channel:
+  direct_host: ""      # 直连的 SSH 别名（如 ~/.ssh/config 里的 Host 名）
+  jump_host: ""        # 备用跳板别名（直连不通时用；可留空）
