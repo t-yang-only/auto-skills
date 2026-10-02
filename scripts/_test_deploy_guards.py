@@ -190,6 +190,46 @@ def main():
             wiz.SECRET_FILES = saved_secrets
             wiz.KNOWN_AGENT_PATHS = saved
 
+    # ── 新不变式（2026-10-02）：凭据只存私有层，不得再复制进各 Agent 根 ──
+    # 由来：凭据原本在 config/ 下、并被硬链接进部署快照，于是 7 个根各持一份。
+    # 现改为只存 .evolution/secrets/（私有层，随私人库多端同步），各根经
+    # snapshot→真源 的 junction 读取。这条守卫防的是「以后有人又把凭据拷回
+    # config/ 下」——那样会退回"七处各一份、改一处不同步"的老问题。
+    LEGACY = ("config/db.password", "config/gateway.token", "config/gateway.url")
+    NEWREL = pathlib.Path(".evolution") / "secrets" / "gateway.token"
+
+    def _scan(paths):
+        with_legacy, missing_new, n = [], [], 0
+        for name, p in paths:
+            root = p / "auto-skills"
+            if not root.exists():
+                continue
+            n += 1
+            if any((root / r).exists() for r in LEGACY):
+                with_legacy.append(name)
+            if not (root / NEWREL).exists():
+                missing_new.append(name)
+        return n, with_legacy, missing_new
+
+    n_scanned, with_legacy, missing_new = _scan(wiz.KNOWN_AGENT_PATHS)
+    check("扫到了 Agent 根（否则本条不具判别力）", n_scanned > 0,
+          "扫到 %d 个" % n_scanned)
+    check("没有任何 Agent 根留存 config/ 下的旧凭据", not with_legacy, with_legacy)
+    check("每个 Agent 根都能经私有层读到凭据", not missing_new, missing_new)
+
+    # 变异：造一个「旧路径又有凭据」的假根，扫描必须发现它。
+    # 没有这一步，上面两条断言在扫描函数写坏时也会全绿。
+    with tempfile.TemporaryDirectory() as tmp:
+        fake = pathlib.Path(tmp) / "fake"
+        (fake / "auto-skills" / "config").mkdir(parents=True)
+        (fake / "auto-skills" / "config" / "gateway.token").write_text(
+            "x", encoding="utf-8")
+        _n, _wl, _mn = _scan([("变异根", fake)])
+        check("变异：旧路径出现凭据时能被发现（证明判据有效）",
+              _wl == ["变异根"], _wl)
+        check("变异：同时该根被判为缺少新路径凭据（两个方向都在测）",
+              _mn == ["变异根"], _mn)
+
     print()
     total = len(PASS) + len(FAIL)
     print("RESULT: %s (%d/%d)" % ("ALL_PASS" if not FAIL else "HAS_FAIL",
