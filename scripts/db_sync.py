@@ -1323,16 +1323,24 @@ def print_db_doctor() -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="auto-skills 数据库存储与全链路自动落库引擎")
-    parser.add_argument("--test", action="store_true", help="测试数据库连接与版本信息")
-    parser.add_argument("--init-db", action="store_true", help="初始化创建全部数据表结构")
-    parser.add_argument("--status", action="store_true", help="查看数据库记录概况")
-    parser.add_argument("--sync-skills", action="store_true", help="将当前技能台账同步至数据库")
-    parser.add_argument("--import-refs", help="导入参考文献定义文件至数据库 (如 compile_references_100.py)")
+    parser = argparse.ArgumentParser(
+        description="auto-skills 数据库存储与全链路自动落库引擎",
+        epilog=(
+            "⚠️ 只读的是 --test / --status / --doctor（以及不带参数）。\n"
+            "   其余都会改动数据库或本地文件，其中 --cleanup-traces 会**删除**历史轨迹行。\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--test", action="store_true", help="测试数据库连接与版本信息（只读）")
+    parser.add_argument("--init-db", action="store_true", help="[写] 初始化创建全部数据表结构")
+    parser.add_argument("--status", action="store_true", help="查看数据库记录概况（只读）")
+    parser.add_argument("--sync-skills", action="store_true", help="[写] 将当前技能台账同步至数据库")
+    parser.add_argument("--import-refs", help="[写] 导入参考文献定义文件至数据库 (如 compile_references_100.py)")
 
-    parser.add_argument("--doctor", action="store_true", help="落库健康自检：开关/连通性/熔断/暂存积压")
-    parser.add_argument("--flush-spool", action="store_true", help="手动补传本地暂存的失败记录")
-    parser.add_argument("--cleanup-traces", type=int, nargs="?", const=30, default=None, help="执行指定天数(默认30天)滚动清理过期工具调用轨迹")
+    parser.add_argument("--doctor", action="store_true", help="落库健康自检：开关/连通性/熔断/暂存积压（只读）")
+    parser.add_argument("--flush-spool", action="store_true", help="[写] 手动补传本地暂存的失败记录")
+    parser.add_argument("--cleanup-traces", type=int, nargs="?", const=30, default=None,
+                        help="[写·会删行] 执行指定天数(默认30天)滚动清理过期工具调用轨迹")
 
     args = parser.parse_args()
 

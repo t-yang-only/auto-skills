@@ -609,22 +609,36 @@ def toggle_channel(channel: str, enable: bool):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="多渠道消息同步与任务自动化推送总控中心")
+    parser = argparse.ArgumentParser(
+        description="多渠道消息同步与任务自动化推送总控中心",
+        epilog=(
+            "⚠️ 只有 --config-list 是只读的；其余都会产生副作用：\n"
+            "   · --config-set / --enable / --disable / -k 会【写】改动本地配置；\n"
+            "   · 不带上述管理选项时（默认路径）会【发】真的发出通知；\n"
+            "   · --test 也会【发】一条自检消息到目标渠道。\n"
+            "   只想看现状就跑 --config-list。\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("-t", "--title", default="大型任务执行完毕", help="通知标题")
     parser.add_argument("-d", "--desp", default="", help="通知正文 (支持 Markdown)")
     parser.add_argument("-p", "--project", default=None,
                         help="项目名称；给了就把标题变成【项目】标题（不给则保持原样）")
     parser.add_argument("--tags", default="任务完成|报告", help="Server酱分类标签")
     parser.add_argument("-k", "--sendkey", default=None,
-                        help="覆盖 Server酱 SendKey —— 注意这会**写入配置**（不是一次性生效）")
+                        help="[写] 覆盖 Server酱 SendKey —— 注意这会**写入配置**（不是一次性生效）")
     parser.add_argument("--channel", help="只推送给指定渠道 (缺省广播至全部启用的渠道)")
 
     # 配置选项
-    parser.add_argument("--config-list", action="store_true", help="列出所有渠道配置状态")
-    parser.add_argument("--config-set", nargs="+", help="配置渠道: --config-set <channel> <param> [extra]")
-    parser.add_argument("--enable", help="启用指定渠道 (如 wecom, feishu, dingtalk, serverchan)")
-    parser.add_argument("--disable", help="禁用指定渠道")
-    parser.add_argument("--test", nargs="?", const="all", help="测试消息联通性 (--test 或 --test wecom)")
+    parser.add_argument("--config-list", action="store_true",
+                        help="列出所有渠道配置状态（只读）")
+    parser.add_argument("--config-set", nargs="+",
+                        help="[写] 配置渠道: --config-set <channel> <param> [extra]")
+    parser.add_argument("--enable",
+                        help="[写] 启用指定渠道 (如 wecom, feishu, dingtalk, serverchan)")
+    parser.add_argument("--disable", help="[写] 禁用指定渠道")
+    parser.add_argument("--test", nargs="?", const="all",
+                        help="[发] 测试消息联通性 (--test 或 --test wecom) —— 会真的发出消息")
 
     args = parser.parse_args()
 

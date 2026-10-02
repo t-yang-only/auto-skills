@@ -429,15 +429,32 @@ def print_bridge_status():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="auto-skills 与 Obsidian 本地及在线知识库双向桥梁")
-    parser.add_argument("--status", action="store_true", help="查看当前知识库配置与同步模式")
-    parser.add_argument("--auto-detect", action="store_true", help="重新触发自动环境探测并确定同步方式")
-    parser.add_argument("--set-vault", nargs="?", const="", help="设置或更改本地 Obsidian 知识库路径 (传空重置)")
-    parser.add_argument("--set-online", nargs="?", const="", help="设置在线知识库地址 (如 https://your-wiki.example.com，可留空)")
-    parser.add_argument("--set-token", nargs="?", const="", help="设置在线知识库访问密钥 / Bearer Token (可留空)")
-    parser.add_argument("--clear-online", action="store_true", help="清空在线知识库地址与访问密钥")
-    parser.add_argument("--import-all", action="store_true", help="从知识库扫描并导入 #skill 笔记至私有技能区")
-    parser.add_argument("--export", help="将指定技能导出为 Obsidian 笔记沉淀")
+    parser = argparse.ArgumentParser(
+        description="auto-skills 与 Obsidian 本地及在线知识库双向桥梁",
+        epilog=(
+            "⚠️ 只有 --status 是只读的；其余选项都会**改动配置或磁盘内容**。\n"
+            "   其中 --clear-online 会清空在线地址与访问密钥（不可撤销），\n"
+            "   --import-all / --export 会写入知识库或私有技能区。\n"
+            "   不确定时先跑 --status 看现状。\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--status", action="store_true",
+                        help="查看当前知识库配置与同步模式（只读）")
+    parser.add_argument("--auto-detect", action="store_true",
+                        help="[写] 重新触发自动环境探测并确定同步方式")
+    parser.add_argument("--set-vault", nargs="?", const="",
+                        help="[写] 设置或更改本地 Obsidian 知识库路径 (传空重置)")
+    parser.add_argument("--set-online", nargs="?", const="",
+                        help="[写] 设置在线知识库地址 (如 https://your-wiki.example.com，可留空)")
+    parser.add_argument("--set-token", nargs="?", const="",
+                        help="[写] 设置在线知识库访问密钥 / Bearer Token (可留空)")
+    parser.add_argument("--clear-online", action="store_true",
+                        help="[写·不可撤销] 清空在线知识库地址与访问密钥")
+    parser.add_argument("--import-all", action="store_true",
+                        help="[写] 从知识库扫描并导入 #skill 笔记至私有技能区")
+    parser.add_argument("--export",
+                        help="[写] 将指定技能导出为 Obsidian 笔记沉淀")
 
     args = parser.parse_args()
 
