@@ -32,39 +32,86 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
 
+def _parse_gateway_block(path: str) -> dict:
+    """行级解析某个 config.yaml 的 agent_gateway 段（仅作降级兜底用）。"""
+    out = {}
+    p = os.path.join(ROOT, path)
+    if not os.path.exists(p):
+        return out
+    in_gw = False
+    for line in open(p, encoding="utf-8"):
+        if line.strip().startswith("agent_gateway:"):
+            in_gw = True
+            continue
+        if not in_gw:
+            continue
+        if line and not line[0].isspace():
+            break
+        s = line.strip()
+        if ":" not in s:
+            continue
+        k, v = s.split(":", 1)
+        out[k.strip()] = v.strip()
+    return out
+
+
 def load_cfg():
-    cfg = {"url": "https://agent.example.com", "token_file": "config/gateway.token", "timeout_seconds": 30}
-    p = os.path.join(ROOT, "config", "config.yaml")
-    if os.path.exists(p):
-        in_gw = False
-        for line in open(p, encoding="utf-8"):
-            if line.strip().startswith("agent_gateway:"):
-                in_gw = True
-                continue
-            if in_gw:
-                if line and not line[0].isspace():
-                    break
-                s = line.strip()
-                if s.startswith("url:"):
-                    cfg["url"] = s.split(":", 1)[1].strip()
-                elif s.startswith("token_file:"):
-                    cfg["token_file"] = s.split(":", 1)[1].strip()
-                elif s.startswith("timeout_seconds:"):
-                    cfg["timeout_seconds"] = int(s.split(":", 1)[1].strip())
-                elif s.startswith("default_urgency:"):
-                    cfg["default_urgency"] = s.split(":", 1)[1].strip()
+    """读取 Agent 网关配置（**分层**：基础层 + `.evolution` 覆盖层）。
+
+    ⚠️ 这里原本是**自己的行解析器，只读 `config/config.yaml`**，完全不看
+    `.evolution/config.yaml`。后果：把 `agent_gateway` 写进覆盖层
+    （也就是这个 skill 推荐的"真实值只放覆盖层"做法）**根本不生效** ——
+    实测踩到：把 `token_file` 改到私有层后，本函数仍去
+    `config/gateway.token` 找令牌，报「未找到令牌」。
+
+    这正是本项目反复要杜绝的「配置里写了但没人读」，也是「同一个配置
+    两个读取方各读一层」的典型：`db_sync` 走 config_manager（读两层），
+    本文件走行解析（只读一层），于是同一份配置对两个模块含义不同。
+
+    现在统一走 config_manager；导入不到时退回行解析器，保证单文件
+    拷贝出去仍能独立运行。
+    """
+    cfg = {"url": "https://agent.example.com",
+           "token_file": ".evolution/secrets/gateway.token",
+           "timeout_seconds": 30}
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import config_manager
+        gw = dict(config_manager.get_value("agent_gateway", {}) or {})
+    except Exception as e:
+        print("[!] 读取分层配置失败，退回只读基础层：（%s: %s）"
+              % (type(e).__name__, e), file=sys.stderr)
+        gw = _parse_gateway_block(os.path.join("config", "config.yaml"))
+
+    for k, v in gw.items():
+        if v in (None, ""):
+            continue          # 空值不覆盖默认，避免"配了空"把可用的默认打掉
+        if k == "timeout_seconds":
+            try:
+                cfg[k] = int(v)
+            except (TypeError, ValueError):
+                print("[!] agent_gateway.timeout_seconds 不是整数，按默认 %d 处理"
+                      % cfg["timeout_seconds"], file=sys.stderr)
+        else:
+            cfg[k] = str(v)
+
     tk = os.path.join(ROOT, cfg["token_file"])
     cfg["token"] = open(tk, encoding="utf-8").read().strip() if os.path.exists(tk) else ""
-    # 真实网关地址放在被 gitignore 的 config/gateway.url 里，
+    # 真实网关地址放在私有层（.evolution/secrets/），不在公开库里 ——
     # 让 config/config.yaml 能保持可公开的占位符（该 skill 会推 GitHub）。
-    try:
-        _gu = os.path.join(ROOT, "config", "gateway.url")
-        if os.path.isfile(_gu):
-            _v = open(_gu, encoding="utf-8").read().strip()
-            if _v:
-                cfg["url"] = _v
-    except Exception:
-        pass
+    # 按「新位置 → 旧位置」顺序找：老安装把凭据留在 config/ 下，
+    # 升级后必须仍然能用，否则会静默变成"地址没配"。
+    for _rel in (os.path.join(".evolution", "secrets", "gateway.url"),
+                 os.path.join("config", "gateway.url")):
+        try:
+            _gu = os.path.join(ROOT, _rel)
+            if os.path.isfile(_gu):
+                _v = open(_gu, encoding="utf-8").read().strip()
+                if _v:
+                    cfg["url"] = _v
+                    break
+        except Exception:
+            continue
 
     return cfg
 

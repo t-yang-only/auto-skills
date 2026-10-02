@@ -71,7 +71,7 @@ database:
   #   3) password       直接把密码写在这里 —— 不推荐，本文件是 git 仓库会被推送
   #
   # 三者都空则报错停止（不会静默用某个内置账号连上）。
-  password_file: config/db.password
+  password_file: .evolution/secrets/db.password
   password_env: ''
   password: ''
 
@@ -124,7 +124,7 @@ agent_gateway:
   enabled: true
   url: https://your-gateway.example.com
   # 令牌从文件读，绝不写进本文件（本 skill 是 git 仓库，会被推送）
-  token_file: config/gateway.token
+  token_file: .evolution/secrets/gateway.token
   timeout_seconds: 30
   # 提问时的默认紧急度：normal / high
   default_urgency: normal

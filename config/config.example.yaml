@@ -18,7 +18,7 @@ database:
   user: ""
   password: ""
   # 密码三级解析，优先级 password_env > password_file > password。
-  # 推荐 password_file：把真值放在一个已被 .gitignore 的文件里（如 config/db.password），
+  # 推荐 password_file：把真值放在私有层（如 .evolution/secrets/db.password），
   # 这里只写文件名。范本刻意留空——真实值绝不能进受版本控制的文件。
   password_env: ""
   password_file: ""
@@ -60,7 +60,7 @@ database:
 agent_gateway:
   enabled: false
   url: ""                       # 如 https://your-gateway.example.com
-  token_file: "config/gateway.token"   # 令牌不放配置里，只放 0600 文件的路径
+  token_file: ".evolution/secrets/gateway.token"   # 令牌不放配置里，只放 0600 文件的路径
   timeout_seconds: 30
   default_urgency: "normal"     # 建意见请求单时的默认紧急度 low/normal/high
 

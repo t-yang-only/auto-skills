@@ -99,7 +99,7 @@ def _resolve_password(cfg: Dict[str, Any]) -> str:
     """按 password_env -> password_file -> password 的顺序解析密码。
 
     刻意不内置任何默认凭据：配置缺失时报错停下，而不是悄悄用某个账号连上。
-    password_file 可写相对技能根目录的相对路径（如 config/db.password）。
+    password_file 可写相对技能根目录的相对路径（如 .evolution/secrets/db.password）。
     """
     env_name = str(cfg.get("password_env") or "").strip()
     if env_name:
