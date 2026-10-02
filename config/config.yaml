@@ -27,8 +27,6 @@ persona:
   talk_like_girlfriend:
     default_enabled: false
     kb_sync_traits: true
-    kb_source_url_or_path: D:/ObsidianVault
-    kb_api_token: ''
     traits_cache_file: .evolution/profile/persona_girlfriend.json
 evolution_vault:
   private_git_remote: 

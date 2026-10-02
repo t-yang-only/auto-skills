@@ -103,8 +103,6 @@ def get_default_config() -> Dict[str, Any]:
             "talk_like_girlfriend": {
                 "default_enabled": None,
                 "kb_sync_traits": None,
-                "kb_source_url_or_path": "",
-                "kb_api_token": "",
                 "traits_cache_file": ".evolution/profile/persona_girlfriend.json"
             }
         },

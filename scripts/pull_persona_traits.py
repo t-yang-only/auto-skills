@@ -4,7 +4,12 @@
 pull_persona_traits.py — 从知识库自适应拉取女友人格定义与温情特性的同步模块
 ============================================================================
 功能：
-1. 检查配置中的知识库端点或本地路径 (如 D:/YourVault 或 https://your-wiki.example.com)；
+1. 解析要读的知识库位置——**唯一权威来源是 `.evolution/obsidian_sync/config.json`
+   的 `vault_path`**（由 `obsidian_bridge.py --set-vault` 写入），其次是几个常见
+   目录候选。早期文档曾写“检查配置中的知识库端点”，但配置里的
+   `persona.talk_like_girlfriend.kb_source_url_or_path` / `kb_api_token`
+   **从来没有被任何代码读过**（全仓与全机范围内零消费者），已于 2026-10-02 删除，
+   以免留下“配了却不生效”的假开关；
 2. 尝试从知识库中检索与“女友/人格/伴侣/沟通习惯”相关的定义与个性化偏好；
 3. 将特性萃取沉淀到本地 `.evolution/profile/persona_girlfriend.json`；
 4. 保证在开启女友模式时，AI 表达具有人情味与同理心，同时保持代码与工程的绝对严谨。

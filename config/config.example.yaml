@@ -103,8 +103,6 @@ persona:
   talk_like_girlfriend:
     default_enabled: null
     kb_sync_traits: null
-    kb_source_url_or_path: ""
-    kb_api_token: ""
     traits_cache_file: ".evolution/profile/persona_girlfriend.json"
 
 evolution_vault:
