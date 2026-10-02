@@ -27,6 +27,7 @@ KNOWN_AGENT_PATHS」把判据本身验穿，不触碰任何真实 harness 根。
 import importlib.util
 import os
 import pathlib
+import subprocess
 import sys
 import tempfile
 
@@ -229,6 +230,52 @@ def main():
               _wl == ["变异根"], _wl)
         check("变异：同时该根被判为缺少新路径凭据（两个方向都在测）",
               _mn == ["变异根"], _mn)
+
+    # ── 私有层（.evolution）的同步边界（2026-10-02） ──
+    # 私有库是多端配置同步的核心依赖，它最容易出的两类问题是**方向相反**的：
+    #   ① 把「每台机器各自产生」的运行时状态也同步上去 → 多端来回冲突
+    #   ② 把 secrets/ 也排除掉 → 凭据根本同步不出去（换设备就配不起来）
+    # 因此必须成对断言；只测一条会把另一条放过去。
+    ROOT = pathlib.Path(__file__).resolve().parent.parent
+    evo = ROOT / ".evolution"
+    RUNTIME = ("db_spool", "db_health.json", "db_cleanup.json",
+               "db_sync_errors.log", "journal", "archive")
+    SECRET_REL = ("secrets/notify_channels.json", "secrets/db.password")
+
+    if not (evo / ".git").exists():
+        print("  [SKIP] 私有库未初始化（新装默认状态）—— 私有层断言不具判别力")
+    else:
+        def _ignored(rel):
+            r = subprocess.run(
+                ["git", "-C", str(evo), "-c", "safe.directory=*",
+                 "check-ignore", "-q", rel],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return r.returncode == 0
+
+        rt_bad = [r for r in RUNTIME if not _ignored(r)]
+        check("私有库排除运行期状态（否则多端同步必然互相冲突）",
+              not rt_bad, rt_bad)
+
+        sec_bad = [s for s in SECRET_REL
+                   if (evo / s).exists() and _ignored(s)]
+        check("私有库的 secrets/ 未被排除（凭据必须能同步出去）",
+              not sec_bad, sec_bad)
+
+        # 变异：_ignored 必须真的有判别力。README.md 是被跟踪的普通文件，
+        # 它**不该**被判为忽略；若 _ignored 恒真，这条会红。
+        check("变异：未被忽略的文件被判为「未忽略」（证明 _ignored 有判别力）",
+              not _ignored("README.md"), "README.md")
+
+    # ── 公开库：凭据路径必须在 .gitignore 里（结构不变式） ──
+    # 不复刻提交钩子的内容扫描（那是另一套职责），这里只钉住"这些路径
+    # 结构上不可能被提交"——这条没有任何其它地方覆盖。
+    gi = ROOT / ".gitignore"
+    if gi.exists():
+        gtxt = gi.read_text(encoding="utf-8")
+        must_ignore = [".evolution", "config/db.password",
+                       "config/gateway.token", "config/gateway.url"]
+        miss = [m for m in must_ignore if m not in gtxt]
+        check("公开库 .gitignore 覆盖全部凭据路径", not miss, miss)
 
     print()
     total = len(PASS) + len(FAIL)

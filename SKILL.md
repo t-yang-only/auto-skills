@@ -295,6 +295,44 @@ python scripts/git_push_notify.py -m "feat: …" --project "<项目名>"
 python scripts/notify_push.py --config-list   # 看哪个渠道启用、凭据是否为空
 ```
 
+### 7.2 通知方式与「要不要通知」都在配置文件里选
+
+**不要为了改通知行为去动代码** —— 这两项是配置项，写在
+`.evolution/config.yaml`（覆盖层，不进公开库）的 `notifications` 段：
+
+```yaml
+notifications:
+  enabled: false           # 只写 false 才静默；null / true / 不写 = 照常通知
+  channels: [serverchan]   # 只通知这些渠道；留空 = 用各渠道自己的 enabled
+```
+
+三个容易踩的点：
+
+1. **`enabled` 的语义是「显式写 false 才静默」，不是「必须显式 true 才发」。**
+   这个键**此前从来没被任何代码读过**（全库只有 `db_sync` 的熔断告警读
+   `notifications` 段），`notify_push.py` 根本不看它 —— 也就是
+   「在配置里选是否通知」曾经写什么都不生效。若改成"默认关"，老配置
+   升级后会**突然一条通知都收不到、且毫无报错**，所以这里刻意取
+   「缺省即放行」。
+2. **`channels` 支持列表与逗号串两种写法**：`[serverchan, feishu]` 或
+   `"serverchan,feishu"`。
+3. **命令行 `--channel X` 永远优先于配置** —— 一次性覆盖用命令行，
+   长期策略写配置。
+
+> 各渠道的**凭据与启用状态**是另一处：`.evolution/secrets/notify_channels.json`
+> （私有层，见 7.3）。配置里的 `channels` 只是"从已启用的里再筛一层"。
+
+### 7.3 凭据一律只放私有层 `.evolution/secrets/`
+
+`db.password`、`gateway.token`、`gateway.url`、`notify_channels.json`
+**只存 `.evolution/secrets/` 一处**，随私人库做多端同步；各 Agent 根的
+`config/` 下**不得**再出现凭据副本或硬链接（那些根经 `snapshot → 真源`
+的 junction 读同一份）。
+
+判据由 `scripts/_test_deploy_guards.py` 守着，方向是双向的：
+*没有任何根留存旧路径凭据* + *每个根都能经私有层读到凭据*。
+只测前一条会在"凭据彻底丢了"时照样绿。
+
 
 ---
 
