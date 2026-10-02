@@ -66,8 +66,6 @@ agent_gateway:
 
 auto_update:
   auto_download_public_update: null
-  check_interval_hours: null
-  remote_git_url: "https://github.com/t-yang-only/auto-skills.git"
 
 notifications:
   # 总开关：**只有显式写 false 才会静默**。
@@ -76,28 +74,27 @@ notifications:
   # 刻意不设计成「必须显式 true 才发」：老配置里这个键从没被读过，
   # 若默认改成关，升级后所有安装会突然收不到通知且毫无提示。
   enabled: null
+  # ⚠️ 各渠道的**凭据与启停状态不在本文件** —— 它们在私有层
+  #    `.evolution/secrets/notify_channels.json`（随私人库做多端同步）。
+  #    改渠道用 CLI 最稳：python scripts/notify_push.py --config-set <渠道> <参数>
+  #    本段只保留「总开关 enabled」与「渠道筛选 channels」两项。
+  #
+  #    曾经存在过的 wecom_webhook / feishu_webhook / dingtalk_webhook /
+  #    dingtalk_secret / pushplus_token / telegram_bot_token /
+  #    telegram_chat_id / bark_url 共 8 个键 **没有任何代码读它们**
+  #    （notify_push.load_channels_config 只读 notify_channels.json 与旧 .sendkey 文件），
+  #    已在 2026-10-02 删除 —— 往那些键里填值是发不出消息的。
   # 只通知哪些渠道（留空 = 用 notify_channels.json 里各渠道自己的 enabled）。
   # 写法：列表 [serverchan, feishu] 或逗号串 "serverchan,feishu"。
   # 命令行 --channel X 永远优先于这里。
   channels: []
   serverchan_sendkey: ""
-  wecom_webhook: ""
-  feishu_webhook: ""
-  dingtalk_webhook: ""
-  dingtalk_secret: ""
-  pushplus_token: ""
-  telegram_bot_token: ""
-  telegram_chat_id: ""
-  bark_url: ""
 
 nm_skills:
   always_enable_project_ledger: null
-  default_client_id: ""
-  default_lease_minutes: null
   auto_claim_before_edit: null
   auto_check_file_conflicts: null
   auto_clean_stale_locks: null
-  ledger_dir_name: "agent_word"
 
 persona:
   talk_like_girlfriend:
@@ -107,9 +104,7 @@ persona:
 
 evolution_vault:
   private_git_remote: ""
-  auto_sync_on_install: null
   custom_skills_dir: ".evolution/custom_skills"
 
 agent_connections:
-  auto_scan_on_startup: null
   connected_agents: []

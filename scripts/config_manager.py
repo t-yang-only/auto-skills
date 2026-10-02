@@ -75,29 +75,16 @@ def get_default_config() -> Dict[str, Any]:
         "is_configured": False,
         "auto_update": {
             "auto_download_public_update": None,
-            "check_interval_hours": 24,
-            "remote_git_url": "https://github.com/t-yang-only/auto-skills.git"
         },
         "notifications": {
             "enabled": None,
             "serverchan_sendkey": "",
-            "wecom_webhook": "",
-            "feishu_webhook": "",
-            "dingtalk_webhook": "",
-            "dingtalk_secret": "",
-            "pushplus_token": "",
-            "telegram_bot_token": "",
-            "telegram_chat_id": "",
-            "bark_url": ""
         },
         "nm_skills": {
             "always_enable_project_ledger": None,
-            "default_client_id": "CODE",
-            "default_lease_minutes": 45,
             "auto_claim_before_edit": True,
             "auto_check_file_conflicts": True,
             "auto_clean_stale_locks": True,
-            "ledger_dir_name": "agent_word"
         },
         "persona": {
             "talk_like_girlfriend": {
@@ -108,11 +95,9 @@ def get_default_config() -> Dict[str, Any]:
         },
         "evolution_vault": {
             "private_git_remote": "",
-            "auto_sync_on_install": True,
             "custom_skills_dir": ".evolution/custom_skills"
         },
         "agent_connections": {
-            "auto_scan_on_startup": True,
             "connected_agents": []
         }
     }

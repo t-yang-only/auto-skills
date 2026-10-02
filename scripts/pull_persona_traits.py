@@ -24,7 +24,36 @@ from typing import Dict, Any, List
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = SCRIPT_DIR.parent
 PROFILE_DIR = SKILL_ROOT / ".evolution" / "profile"
-TRAITS_FILE = PROFILE_DIR / "persona_girlfriend.json"
+
+
+def _cfg_str(key: str, default: str = "") -> str:
+    """惰性读配置；读不到返回 default（保持本文件可独立运行）。"""
+    try:
+        import config_manager
+        v = config_manager.get_value(key, default)
+        return str(v) if v not in (None, "") else default
+    except Exception:
+        return default
+
+
+def _resolve_under_root(rel: str, fallback: Path) -> Path:
+    """把配置里的路径解析到技能根下；空值或异常一律用 fallback。"""
+    try:
+        if rel:
+            p = Path(str(rel))
+            return p if p.is_absolute() else (SKILL_ROOT / p)
+    except Exception:
+        pass
+    return fallback
+
+
+# 特性缓存文件。**以前这里是硬编码**，而配置里有
+# `persona.talk_like_girlfriend.traits_cache_file` 却没有任何代码读它 ——
+# 也就是「在配置里改缓存位置」从来不生效（2026-10-02 接线修掉）。
+# 缺省值与原硬编码一致，不填配置的安装行为不变。
+TRAITS_FILE = _resolve_under_root(
+    _cfg_str("persona.talk_like_girlfriend.traits_cache_file"),
+    PROFILE_DIR / "persona_girlfriend.json")
 SYNC_CFG = SKILL_ROOT / ".evolution" / "obsidian_sync" / "config.json"
 
 # 知识库路径一律动态解析，绝不硬编码某个人的磁盘布局。
