@@ -70,7 +70,16 @@ auto_update:
   remote_git_url: "https://github.com/t-yang-only/auto-skills.git"
 
 notifications:
+  # 总开关：**只有显式写 false 才会静默**。
+  #   null / 不写 / true  → 照常按各渠道自己的开关通知
+  #   false               → 全局静默，notify_push 一条都不发（也不报错）
+  # 刻意不设计成「必须显式 true 才发」：老配置里这个键从没被读过，
+  # 若默认改成关，升级后所有安装会突然收不到通知且毫无提示。
   enabled: null
+  # 只通知哪些渠道（留空 = 用 notify_channels.json 里各渠道自己的 enabled）。
+  # 写法：列表 [serverchan, feishu] 或逗号串 "serverchan,feishu"。
+  # 命令行 --channel X 永远优先于这里。
+  channels: []
   serverchan_sendkey: ""
   wecom_webhook: ""
   feishu_webhook: ""

@@ -406,10 +406,65 @@ DISPATCH_MAP = {
 # 多渠道聚合广播调度器
 # ==============================================================================
 
+def resolve_notify_policy() -> Tuple[bool, Optional[List[str]]]:
+    """从配置文件读取「是否通知」与「只通知哪些渠道」。
+
+    读 `.evolution/config.yaml`（覆盖层）的 notifications 段，两项都**缺省即放行**，
+    以保持对既有配置的零影响：
+
+        notifications:
+          enabled: true          # false = 全局静默（显式关掉才会静默）
+          channels: [serverchan] # 只通知这些渠道；留空/不写 = 用各渠道自己的 enabled
+
+    ⚠️ enabled 的语义刻意是「显式 false 才静默」而不是「必须显式 true」：
+    此前这个键从来没被读过（默认值是 None），若改成「默认关」，
+    所有既有安装会在升级后**突然一条通知都收不到**，而且毫无报错——
+    那正是本项目反复要杜绝的「功能看起来在、实际不生效」。
+
+    channels 只在**没显式指定 target_channel** 时作为默认过滤；命令行
+    `--channel X` 永远优先于它。
+    """
+    try:
+        # 惰性导入：notify_push 是独立 CLI，可能被以各种 sys.path 方式加载；
+        # 放模块级会在某些加载顺序下引发循环导入。失败按「照常通知」处理。
+        import config_manager
+        cfg = config_manager.get_value("notifications", {}) or {}
+    except Exception as e:
+        print(f"[!] 读取通知策略失败，按「照常通知」处理：（{type(e).__name__}: {e}）",
+              file=sys.stderr)
+        return True, None
+
+    enabled = cfg.get("enabled")
+    if enabled is False:
+        return False, None
+
+    raw = cfg.get("channels")
+    chans: Optional[List[str]] = None
+    if isinstance(raw, str):
+        chans = [c.strip() for c in raw.split(",") if c.strip()] or None
+    elif isinstance(raw, (list, tuple)):
+        chans = [str(c).strip() for c in raw if str(c).strip()] or None
+    return True, chans
+
+
 def broadcast_message(title: str, desp: str, tags: str = "任务完成|报告", target_channel: Optional[str] = None) -> Dict[str, Any]:
     """
     向所有启用的渠道（或指定渠道）并发/聚合广播消息
     """
+    allow, cfg_channels = resolve_notify_policy()
+    if not allow:
+        print("[*] 通知已在配置中关闭（notifications.enabled=false），本次不发送。")
+        return {
+            "title": title,
+            "broadcast_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "total_active_channels": 0,
+            "success_count": 0,
+            "failed_count": 0,
+            "skipped": True,
+            "skip_reason": "notifications.enabled=false",
+            "details": {}
+        }
+
     cfg = load_channels_config()
     channels = cfg.get("channels", {})
     report = {
@@ -421,7 +476,14 @@ def broadcast_message(title: str, desp: str, tags: str = "任务完成|报告", 
         "details": {}
     }
 
-    targets = [target_channel] if target_channel else list(channels.keys())
+    if target_channel:
+        targets = [target_channel]
+    elif cfg_channels:
+        # 配置里指定了「只通知这些渠道」——命令行未显式指定时才生效
+        targets = [c for c in channels.keys() if c in cfg_channels]
+        print(f"[*] 配置限定通知渠道: {', '.join(targets) or '（无匹配渠道）'}")
+    else:
+        targets = list(channels.keys())
 
     for ch_name in targets:
         ch_cfg = channels.get(ch_name)
