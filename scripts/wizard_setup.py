@@ -649,7 +649,6 @@ def connect_agents(agent_names: Optional[List[str]] = None) -> List[str]:
 
 def run_auto_setup(
     always_nm: bool = True,
-    auto_update: bool = True,
     girlfriend_mode: bool = False,
     kb_sync_gf: bool = False,
     private_git: str = "",
@@ -663,8 +662,6 @@ def run_auto_setup(
     cfg = config_manager.load_config()
 
     # 1. 自动更新
-    cfg["auto_update"]["auto_download_public_update"] = auto_update
-    print(f"[*] 公开库自动更新: {'启用' if auto_update else '禁用'}")
 
     # 2. nm-skills 协同台账
     cfg["nm_skills"]["always_enable_project_ledger"] = always_nm
@@ -723,7 +720,6 @@ def print_status():
     print("=" * 72)
     print(f"- 首次引导配置状态 : {'✅ 已配置 (Configured)' if is_conf else '⚠️ 待首次配置 (Unconfigured)'}")
     print(f"- 配置文件绝对路径 : {CONFIG_FILE}")
-    print(f"- 公开库自动更新   : {cfg.get('auto_update', {}).get('auto_download_public_update')}")
     print(f"- nm-skills 默认启用: {cfg.get('nm_skills', {}).get('always_enable_project_ledger')}")
     print(f"- 女友人格默认启用 : {cfg.get('persona', {}).get('talk_like_girlfriend', {}).get('default_enabled')}")
     print(f"- 私有 Git 远端    : {cfg.get('evolution_vault', {}).get('private_git_remote') or '<未绑定>'}")
@@ -880,7 +876,6 @@ def main():
     if args.auto or not config_manager.is_configured():
         run_auto_setup(
             always_nm=True,
-            auto_update=True,
             girlfriend_mode=False,
             kb_sync_gf=True,
             private_git="",

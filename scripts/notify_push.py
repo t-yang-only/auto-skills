@@ -532,25 +532,35 @@ def notify_task_complete(
     """
     提供给外部脚本调用的统一入口（向下兼容原有调用，同时自动广播给所有已配置的多渠道）
     """
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    title = f"【完成】{project_name}: {task_name}"
+    now_str = datetime.now().strftime("%H:%M")
 
-    lines = [
-        f"## ✅ 【{project_name}】大型研发任务执行完成",
-        f"- **任务名称**：{task_name}",
-        f"- **执行状态**：`SUCCESS`",
-        f"- **完成时间**：{now_str}",
-    ]
-    if git_commit:
-        lines.append(f"- **Git 提交**：`{git_commit}`")
+    # ── 人看 / AI 看分层（2026-10-02 重写）──
+    # 通知是**给人看的**，它只该回答三个问题：做了什么 / 结果如何 / 要我做什么。
+    # 因此刻意**去掉**了这些东西：
+    #   · `## ✅` / `### 📝` 这类重标题 —— 手机上占高度、不增信息
+    #   · 每行 `**加粗标签**：` —— 全是视觉噪音
+    #   · `执行状态：SUCCESS` —— 这是「完成」模板，恒真、零信息
+    #   · 末尾固定签名行 —— 每条都出现，纯占位
+    # 机器详情（diff、文件清单、验证命令原文）属于 **commit message 与落盘报告**，
+    # 那是 AI 与桌面端看的，不进手机通知。
+    title = f"【{project_name}】{task_name}"
+
+    lines = []
     if summary:
-        lines.append(f"\n### 📝 任务成果总结\n{summary}")
+        lines.append(summary.strip())
     if deliverables:
-        lines.append("\n### 📦 核心交付物清单")
-        for item in deliverables:
-            lines.append(f"- {item}")
-    lines.append("\n---\n*由 auto-skills 多渠道聚合消息同步中心自动化广播*")
-    desp = "\n".join(lines)
+        # 最多两条；不再由本函数自动塞「100% 通过」这类**未经当次验证**的话术
+        for item in list(deliverables)[:2]:
+            lines.append("· " + str(item).strip())
+    if git_commit:
+        lines.append("提交 " + str(git_commit)[:12])
+    desp = "\n".join(lines) if lines else ("完成于 " + now_str)
+
+    # 长度本身就是可用性的一部分：超长会让人干脆不读。
+    # 超出时截断并给出**去哪看详情**的指针，而不是把详情塞进来。
+    MAX_CHARS = 280
+    if len(desp) > MAX_CHARS:
+        desp = desp[:MAX_CHARS].rstrip() + "\n…（详情见提交信息）"
 
     # 用传入的 key 覆盖 Server酱配置（注意：会落盘，见 apply_sendkey_override）
     if sendkey:

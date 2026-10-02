@@ -64,9 +64,6 @@ agent_gateway:
   timeout_seconds: 30
   default_urgency: "normal"     # 建意见请求单时的默认紧急度 low/normal/high
 
-auto_update:
-  auto_download_public_update: null
-
 notifications:
   # 总开关：**只有显式写 false 才会静默**。
   #   null / 不写 / true  → 照常按各渠道自己的开关通知

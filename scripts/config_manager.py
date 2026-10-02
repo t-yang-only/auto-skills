@@ -73,9 +73,6 @@ def get_default_config() -> Dict[str, Any]:
     return {
         "version": "3.0.0",
         "is_configured": False,
-        "auto_update": {
-            "auto_download_public_update": None,
-        },
         "notifications": {
             "enabled": None,
             "serverchan_sendkey": "",

@@ -239,8 +239,12 @@ def main():
     ROOT = pathlib.Path(__file__).resolve().parent.parent
     evo = ROOT / ".evolution"
     RUNTIME = ("db_spool", "db_health.json", "db_cleanup.json",
-               "db_sync_errors.log", "journal", "archive")
+               "db_sync_errors.log", "journal", "archive",
+               "hk-channel-state.json")
     SECRET_REL = ("secrets/notify_channels.json", "secrets/db.password")
+    # **声明允许被同步的路径**（白名单）。实际跟踪面必须完全落在这里面。
+    ALLOW = ("config.yaml", "README.md", ".gitignore",
+             "custom_skills/", "obsidian_sync/", "profile/", "secrets/")
 
     if not (evo / ".git").exists():
         print("  [SKIP] 私有库未初始化（新装默认状态）—— 私有层断言不具判别力")
@@ -265,6 +269,31 @@ def main():
         # 它**不该**被判为忽略；若 _ignored 恒真，这条会红。
         check("变异：未被忽略的文件被判为「未忽略」（证明 _ignored 有判别力）",
               not _ignored("README.md"), "README.md")
+
+        # ── 白名单判据（2026-10-02 修严）──
+        # 上面那个 RUNTIME 黑名单的宿命就是漏：本轮就漏掉了
+        # `hk-channel-state.json`（通道自愈状态，每次探测都改写），
+        # 它被跟踪进了私有库 → 多端同步必然冲突 + 产生噪音提交。
+        # 所以改为**声明式白名单**：实际跟踪面必须完全落在 ALLOW 里，
+        # 多一个文件就 FAIL（fail-closed）。新增状态文件时会立刻被抓住，
+        # 不需要有人记得往黑名单里加名字。
+        def _allowed(rel):
+            return any(rel == a or rel.startswith(a) for a in ALLOW)
+
+        _r = subprocess.run(
+            ["git", "-C", str(evo), "-c", "safe.directory=*", "ls-files"],
+            capture_output=True, encoding="utf-8", errors="replace")
+        tracked = [l.strip() for l in _r.stdout.splitlines() if l.strip()]
+        extra = [f for f in tracked if not _allowed(f)]
+        check("私有库跟踪面没有「未声明」的文件（白名单外一律失败）",
+              not extra, "多出: %s" % (extra or "无"))
+        check("私有库确实跟踪到了文件（否则白名单判据不具判别力）",
+              len(tracked) > 0, "共 %d 个" % len(tracked))
+
+        # 变异：造一个白名单外的路径，_allowed 必须判否
+        check("变异：白名单外的文件被判为未声明（判据不恒绿）",
+              not _allowed("hk-channel-state.json"),
+              "hk-channel-state.json")
 
     # ── 公开库：凭据路径必须在 .gitignore 里（结构不变式） ──
     # 不复刻提交钩子的内容扫描（那是另一套职责），这里只钉住"这些路径
