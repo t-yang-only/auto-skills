@@ -98,7 +98,10 @@ def purge_deployed_secrets(verbose: bool = True) -> List[str]:
     被 agent_names 过滤、或同步失败），只要它下面已有旧副本就必须清理。
 
     ⚠️ 链接形态的根必须跳过（2026-10-01 实测的 P1 缺陷）：
-    `build_dist()` 会**有意**把凭据以硬链接放进快照（见其 L375-401 的论证：
+    `build_dist()` 会为**旧布局**把凭据以硬链接放进快照（见其下方论证）。
+    （2026-10-02 起凭据改放私有层 `.evolution/secrets/`，不再位于 `config/` 下，
+    故该逻辑在现行安装里空转；保留它是为兼容仍把凭据放在 `config/` 的老安装。）
+    原论证：
     从链接根运行时 SKILL_ROOT 就是快照，db_sync.py 要读
     `SKILL_ROOT/config/db.password`，快照里没有它落库整条链路就失效）。
     而本函数遍历 `p/"auto-skills"` 时，链接根的这条路径会**经 junction 解析到
@@ -175,7 +178,7 @@ def _dir_signature(d: Path) -> str:
     两条必须遵守的口径：
     ① **绝不能把 mtime 算进指纹**——源与副本的修改时间天然不同（robocopy 会
        重写时间戳），用它比较会让每个根永远显示"陈旧"，校验器等于坏掉；
-    ② **必须排除凭据文件**——副本里没有 config/db.password 是**正确状态**
+    ② **必须排除凭据文件**——副本里没有凭据是**正确状态**（凭据只在私有层 `.evolution/secrets/`）
        （部署时被 /XF 与巡检主动排除），拿"源有副本没有"当陈旧是误判。
     """
     import hashlib
@@ -294,7 +297,7 @@ def build_dist() -> Path:
     （`rmdir <link>` 只删链接本身），再用 shutil.rmtree 删空壳。
 
     为什么需要这一层：直接把 harness 目录链接到真源有个副作用——
-    真源里的 config/db.password 等凭据会从每个链接路径变得可达
+    真源私有层里的凭据会经 junction 从每个链接路径变得可达
     （实测确认：链接后 `~/.cursor/skills/auto-skills/config/db.password`
     能读到内容）。分发快照把「要分发的」与「只属于本机的」切开，
     链接指向快照，凭据仍只留在真源一处。
@@ -396,7 +399,10 @@ def build_dist() -> Path:
 
     # 凭据文件在快照里改成**硬链接**（同一份数据，不是拷贝）。
     #
-    # 为什么必须有：db_sync.py 用 `SKILL_ROOT / config/db.password` 解析密码，
+    # 为什么保留：这是为**老安装**准备的兼容路径 ——
+    # 凭据自 2026-10-02 起改放 `.evolution/secrets/`，此时 `_src.exists()` 为假、
+    # 本循环空转，不再往快照放任何东西（这正是「本地不留存」的实现方式）。
+    # 老安装若仍把凭据放在 config/ 下，db_sync.py 用 `SKILL_ROOT / <password_file>` 解析密码，
     # 而从链接根运行时 SKILL_ROOT 就是快照。快照若完全没有凭据，落库整条
     # 链路失效（实测报 "password_file 指向的 ... 不存在"，熔断器随即打开）。
     #
@@ -442,7 +448,7 @@ def link_agents(agent_names: Optional[List[str]] = None, mode: str = "auto") -> 
     要么全好要么全旧，不会出现参差不齐。
 
     ⚠️ 凭据在链接路径下**是可读的**（实测：三个链接根下
-    config/db.password 均 Test-Path=True）。它们被刻意硬链接进快照，
+    `.evolution/secrets/` 下的凭据均 Test-Path=True）。它们只存私有层一处，经 junction 可见，
     否则从链接根运行 db_sync 会因找不到密码文件而让整条落库链路失效。
     **真正的安全边界是文件权限（0600）与"只有一份"，不是"链接路径读不到"**。
     详见 build_dist 里的凭据硬链接说明——不要按"链接就藏住了"去设想防护。
@@ -498,7 +504,7 @@ def link_agents(agent_names: Optional[List[str]] = None, mode: str = "auto") -> 
                 raise RuntimeError("链接建立后读不到 SKILL.md")
             # 注意：这里**不能**判"链接路径下存在凭据即失败"。
             # 快照里的三个凭据是有意放的**硬链接**（同一份数据），因为
-            # db_sync.py 用 SKILL_ROOT/config/db.password 解析密码，缺了
+            # db_sync.py 用 SKILL_ROOT/<password_file> 解析密码（新布局指向 .evolution/secrets/），缺了
             # 落库整条链路失效。判据应是「是否与真源同一份」而不是「是否存在」
             # ——旧版按"存在即失败"会导致每次建链接都误判失败并回退到
             # robocopy，而 robocopy 的目标正是快照目录，于是把 agent_word/
