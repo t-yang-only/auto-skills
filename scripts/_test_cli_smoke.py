@@ -96,6 +96,65 @@ def main():
               "usage" in out.lower() and "Traceback" not in out,
               "rc=%s 输出长度=%d" % (rc, len(out)))
 
+    # ── CLI 契约：--help 必须可调用且**零副作用**（2026-10-02 新增） ──
+    # 由来：审计 CLI 可调用性时用 `--help` 逐个探，结果
+    # `pull_persona_traits.py` 把 `--help` 当成"知识库路径"参数、**真的跑了一次
+    # 人格特性拉取并覆写缓存**；`hk_link_live.py` 也照跑了一次自检。
+    # 「探索即执行」与此前修过的「写操作没有标记」是同一类问题：
+    # 使用者（人或 agent）看一眼用法，不该产生任何后果。
+    #
+    # 判据必须锚**副作用**而不是 rc —— 只看 rc 的话，"跑了一遍还给 0" 会假绿。
+    ROOT_HERE = Path(__file__).resolve().parent.parent
+    WATCH = [ROOT_HERE / ".evolution" / "profile",
+             ROOT_HERE / ".evolution"]
+
+    def _snap():
+        """快照「可能被副作用改到」的文件 → (路径, mtime_ns, size)。"""
+        out = {}
+        for d in WATCH:
+            if not d.exists():
+                continue
+            for f in d.rglob("*"):
+                if f.is_file():
+                    try:
+                        st = f.stat()
+                        out[str(f)] = (st.st_mtime_ns, st.st_size)
+                    except OSError:
+                        pass
+        return out
+
+    import glob as _glob
+    entries = []
+    for _p in sorted(_glob.glob(str(ROOT_HERE / "scripts" / "*.py"))):
+        _n = Path(_p).name
+        if _n.startswith("_test_"):
+            continue
+        try:
+            if "__main__" in Path(_p).read_text(encoding="utf-8"):
+                entries.append(_p)
+        except OSError:
+            pass
+
+    bad_rc, dirty = [], []
+    for _p in entries:
+        before = _snap()
+        r = subprocess.run([sys.executable, _p, "--help"],
+                           capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=90)
+        after = _snap()
+        if r.returncode != 0:
+            bad_rc.append("%s(rc=%s)" % (Path(_p).name, r.returncode))
+        if before != after:
+            changed = [Path(k).name for k in set(before) | set(after)
+                       if before.get(k) != after.get(k)]
+            dirty.append("%s→%s" % (Path(_p).name, changed[:3]))
+
+    check("扫到了 CLI 入口（否则本条不具判别力）", len(entries) > 0,
+          "扫到 %d 个" % len(entries))
+    check("每个 CLI 入口 `--help` 都以 rc=0 退出", not bad_rc, bad_rc)
+    check("每个 CLI 入口 `--help` 都**不产生副作用**（文件未被改写）",
+          not dirty, dirty)
+
     print()
     total = len(PASS) + len(FAIL)
     print("RESULT: %s (%d/%d)" % ("ALL_PASS" if not FAIL else "HAS_FAIL",

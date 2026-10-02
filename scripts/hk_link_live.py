@@ -51,6 +51,19 @@ def _pm2_list_json(pm2_bin):
 
 
 def check_local_pm2():
+    """查本机 pm2 里的节点进程，返回**三态** ``(state, detail)``。
+
+    为什么不是布尔：从受限 shell 调 pm2 会因命名管道权限失败
+    （`connect EPERM \\\\.\\pipe\\rpc.sock`，errno -4048）。那不是「桥挂了」，
+    而是「这里看不到」。**实测踩过**：本机桥明明在线（网关 nodes 里有它），
+    布尔版却报 FAIL —— 会把排查带错方向。
+
+    三态语义：
+      online   pm2 明确回答进程在跑
+      offline  pm2 明确回答进程不在 / 不在线
+      unknown  **问不到**（命令不存在 / 权限受限 / 解析失败）——
+               此时桥在不在，以 `check_gateway_node()` 为准
+    """
     pm2_cmds = ["pm2",
                 os.path.expandvars(r"%AppData%\npm\pm2.cmd"),
                 os.path.expanduser("~/AppData/Roaming/npm/pm2.cmd")]
@@ -59,18 +72,25 @@ def check_local_pm2():
         try:
             arr = _pm2_list_json(pm2)
         except FileNotFoundError as e:
-            last_err = str(e)
+            last_err = "命令不存在: %s" % e
             continue
         except Exception as e:
-            last_err = str(e)
+            last_err = "%s: %s" % (type(e).__name__, e)
             continue
+        # 能走到这里说明 pm2 **确实回答了**，可以据此给出 online/offline
         for p in arr:
             if p.get("name") != LOCAL_PM2_APP:
                 continue
             status = p.get("pm2_env", {}).get("status")
-            return status == "online", "pm2 status=" + str(status)
-        return False, "未找到 " + LOCAL_PM2_APP + " 进程"
-    return False, "找不到 pm2: " + str(last_err)
+            if status == "online":
+                return "online", "pm2 status=online"
+            return "offline", "pm2 status=" + str(status)
+        return "offline", "pm2 里没有 %s 进程" % LOCAL_PM2_APP
+    hint = ""
+    if last_err and ("EPERM" in last_err or "-4048" in last_err
+                     or "rpc.sock" in last_err):
+        hint = "（受限环境：命名管道被拒，**不能**据此判定桥挂了）"
+    return "unknown", "pm2 问不到: %s%s" % (last_err, hint)
 
 
 def parse_health(out):
@@ -95,32 +115,84 @@ def parse_health(out):
 
 
 def check_gateway_node():
-    """通过自愈通道读 agent-gateway 健康端点，看 nodes 里有没有目标节点。"""
+    """经自愈通道读 agent-gateway 健康端点，看 nodes 里有没有本机节点。
+
+    返回**三态** ``(state, detail)``，state ∈ {"ok","fail","unknown"}。
+
+    为什么也要三态：主机别名来自环境变量（`HK_DIRECT_HOST` / `HK_JUMP_HOST`），
+    而本脚本按设计**不写死任何真实主机**。所以没配环境变量时，
+    `hk_channel` 只能去连占位符名字，必然报「两条通道都不可达」。
+    那**不是链路故障**，而是"这里没法判" —— 但两态版会把它报成 FAIL，
+    而这个脚本的职责正是在失联时推送告警，于是**会推出一条假告警**。
+    实测踩过：本机节点明明在线（直连网关 /health 的 nodes 里有它），这里却报 FAIL。
+    """
+    if not (os.environ.get("HK_DIRECT_HOST") or os.environ.get("HK_JUMP_HOST")):
+        return ("unknown",
+                "未配置 HK_DIRECT_HOST / HK_JUMP_HOST（按设计不写死真实主机）"
+                "→ 无法经通道判定；请用直连 /health 交叉验证")
     import hk_channel as mod
-    host, _ = mod.pick_host()
+    try:
+        host, _ = mod.pick_host()
+    except RuntimeError as e:
+        return "fail", "通道不可达：" + str(e)[:200]
     rc, out = mod.hk_run(GATEWAY_HEALTH)
     if rc != 0:
-        return False, "health 端点 rc=" + str(rc) + ": " + out[:200]
+        return "fail", "health 端点 rc=" + str(rc) + ": " + out[:200]
     d = parse_health(out)
     if d is None:
-        return False, "health 解析失败：" + out[:200]
+        return "fail", "health 解析失败：" + out[:200]
     nodes = d.get("nodes") or []
     if LOCAL_NODE_NAME not in nodes:
-        return False, "节点清单=" + str(nodes) + "（缺少 " + LOCAL_NODE_NAME + "）"
-    return True, "在线节点=" + str(nodes)
+        return "fail", "节点清单=" + str(nodes) + "（缺少 " + LOCAL_NODE_NAME + "）"
+    return "ok", "在线节点=" + str(nodes)
 
 
 def main(argv):
+    # -h/--help 必须**短路**：这个脚本原先没有任何参数解析，
+    # `--help` 被当成普通字符串忽略、脚本照跑（实测：探索 CLI 时真的执行了一次自检）。
+    # 「探索即执行」与本仓库此前修过的「写操作没有标记」是同一类问题。
+    #
+    # 注意**不改变裸跑行为**：无参数时仍旧跑一次自检（可能有定时任务依赖它）。
+    if "-h" in argv or "--help" in argv:
+        print(
+            "hk_link_live.py —— 本机↔远端链路端到端自检\n"
+            "\n"
+            "用法：\n"
+            "  python hk_link_live.py                    跑一次自检（默认，行为不变）\n"
+            "  python hk_link_live.py --push-serverchan  自检不通时推送告警\n"
+            "  python hk_link_live.py -h | --help        只打印本说明，不执行任何检查\n"
+            "\n"
+            "检查项：\n"
+            "  LOCAL_PM2     本机 pm2 里的节点进程\n"
+            "  GATEWAY_NODE  经通道读网关 /health，看节点清单里有没有本机（**权威判据**）\n"
+            "\n"
+            "为什么 LOCAL_PM2 是三态：从受限 shell 调 pm2 会因命名管道权限报 EPERM\n"
+            "（errno -4048）。那种情况下**不能**判定「本机桥挂了」——实测踩过：\n"
+            "本机桥明明在线（网关 nodes 里有它），这里却报 FAIL。\n"
+            "桥到底在不在，以 GATEWAY_NODE 为准。\n")
+        return 0
     push = "--push-serverchan" in argv
-    local_ok, local_detail = check_local_pm2()
+    local_state, local_detail = check_local_pm2()
     try:
-        gw_ok, gw_detail = check_gateway_node()
+        gw_state, gw_detail = check_gateway_node()
     except Exception as e:
-        gw_ok, gw_detail = False, f"远端探测失败：{e}"
+        gw_state, gw_detail = "fail", f"远端探测失败：{e}"
 
-    print("LOCAL_PM2:", "OK" if local_ok else "FAIL", local_detail)
-    print("GATEWAY_NODE:", "OK" if gw_ok else "FAIL", gw_detail)
-    overall = local_ok and gw_ok
+    print("LOCAL_PM2:",
+          {"online": "OK", "offline": "FAIL", "unknown": "UNKNOWN"}[local_state],
+          local_detail)
+    print("GATEWAY_NODE:",
+          {"ok": "OK", "fail": "FAIL", "unknown": "UNKNOWN"}[gw_state],
+          gw_detail)
+    # 判定规则（统一取「只有**明确**失败才算失败」）：
+    #   · GATEWAY_NODE 是权威端到端判据 —— ok 即链路确实通
+    #   · 任一项为 unknown 一律**不算失败**：那是"这里看不到"，不是"链路断了"。
+    #     把它们当失败会导致**假告警**（实测踩过：本机桥在线却报 FAIL，
+    #     而本机没配主机别名时也会误报失联）。
+    if gw_state == "unknown" and local_state == "unknown":
+        print("OVERALL: UNKNOWN（无法判定；请用直连 /health 交叉验证节点是否在线）")
+        return 0
+    overall = (gw_state != "fail") and (local_state != "offline")
     print("OVERALL:", "OK" if overall else "FAIL")
     if not overall and push:
         try:
