@@ -40,7 +40,8 @@ def _load(name, path):
     return mod
 
 
-def run_main(args, local_ok, gw_ok, local_detail="", gw_detail="", run_called=False):
+def run_main(args, local_state="online", gw_state="ok",
+             local_detail="", gw_detail="", run_called=False):
     import sys as _sys
     # 让"hk_channel"作为模块名注册到 sys.modules（脚本 main 里 `from hk_channel import hk_run` 用）
     if "hk_channel" not in _sys.modules:
@@ -54,8 +55,8 @@ def run_main(args, local_ok, gw_ok, local_detail="", gw_detail="", run_called=Fa
     orig_local = link.check_local_pm2
     orig_gw = link.check_gateway_node
     orig_run = ch.hk_run
-    link.check_local_pm2 = lambda: (local_ok, local_detail or ("ok" if local_ok else "down"))
-    link.check_gateway_node = lambda: (gw_ok, gw_detail or ("online" if gw_ok else "offline"))
+    link.check_local_pm2 = lambda: (local_state, local_detail or local_state)
+    link.check_gateway_node = lambda: (gw_state, gw_detail or gw_state)
     called = {"n": 0}
     def fake_run(*a, **k):
         called["n"] += 1
@@ -75,18 +76,37 @@ def run_main(args, local_ok, gw_ok, local_detail="", gw_detail="", run_called=Fa
 
 def main():
     # T1 两端 OK
-    rc, out, n = run_main([], local_ok=True, gw_ok=True)
+    rc, out, n = run_main([], local_state="online", gw_state="ok")
     check("T1 两端 OK → OVERALL OK rc=0", rc == 0 and "OVERALL: OK" in out and n == 0, out)
-    # T2 pm2 FAIL
-    rc, out, n = run_main([], local_ok=False, gw_ok=True, local_detail="pm2 down")
-    check("T2 pm2 FAIL → OVERALL FAIL", rc == 1 and "OVERALL: FAIL" in out, out)
-    # T3 gateway FAIL
-    rc, out, n = run_main([], local_ok=True, gw_ok=False, gw_detail="节点不在")
-    check("T3 gateway FAIL → OVERALL FAIL", rc == 1 and "OVERALL: FAIL" in out, out)
+    # T2 pm2 **明确**回答不在线
+    rc, out, n = run_main([], local_state="offline", gw_state="ok",
+                          local_detail="pm2 status=stopped")
+    check("T2 pm2 明确 offline → OVERALL FAIL", rc == 1 and "OVERALL: FAIL" in out, out)
+    # T3 gateway **明确**失败
+    rc, out, n = run_main([], local_state="online", gw_state="fail", gw_detail="节点不在")
+    check("T3 gateway 明确 fail → OVERALL FAIL", rc == 1 and "OVERALL: FAIL" in out, out)
     # T4 两端 FAIL + --push-serverchan（harness：不应抛）
-    rc, out, n = run_main(["--push-serverchan"], local_ok=False, gw_ok=False)
+    rc, out, n = run_main(["--push-serverchan"], local_state="offline", gw_state="fail")
     check("T4 两端 FAIL + --push-serverchan → rc=1 且尝试推送",
           rc == 1 and n >= 1 and "PUSHED" in out, out)
+
+    # ── T5/T6：三态语义（2026-10-02 新增）──
+    # 这两条守的是本次修复的核心：**「问不到」不等于「坏了」**。
+    # 旧版把 LOCAL_PM2 做成布尔，从受限 shell 调 pm2 报 EPERM 时会误报 FAIL；
+    # 而没配主机别名时 GATEWAY_NODE 也会误报 FAIL —— 本脚本的职责正是在
+    # 失联时推送告警，于是会推出**假告警**。实测踩过。
+    rc, out, n = run_main([], local_state="unknown", gw_state="ok")
+    check("T5 pm2 问不到(unknown) + gateway OK → OVERALL OK（旧版会误报 FAIL）",
+          rc == 0 and "OVERALL: OK" in out and "UNKNOWN" in out, out)
+
+    rc, out, n = run_main([], local_state="unknown", gw_state="unknown")
+    check("T6 两项都 unknown → OVERALL UNKNOWN 且 rc=0（不误报、不假推送）",
+          rc == 0 and "OVERALL: UNKNOWN" in out and n == 0, out)
+
+    # T7 --help 必须短路：不跑检查、不推送（探索不该有副作用）
+    rc, out, n = run_main(["--help"], local_state="offline", gw_state="fail")
+    check("T7 --help 短路 → rc=0 且没有跑检查/没推送",
+          rc == 0 and n == 0 and "OVERALL" not in out and "用法" in out, out)
 
     # T5 parse_health：真实形态（hk_run 前缀 + 多行缩进 JSON）必须解得出
     # ——这条是补的：前四条测试把 check_gateway_node 整个 mock 掉了，

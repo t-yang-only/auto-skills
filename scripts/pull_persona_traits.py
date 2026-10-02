@@ -141,6 +141,28 @@ def pull_and_sync_traits(kb_path_or_url: str = "", token: str = "") -> Dict[str,
 
 
 if __name__ == "__main__":
-    kb = sys.argv[1] if len(sys.argv) > 1 else ""
-    tok = sys.argv[2] if len(sys.argv) > 2 else ""
+    argv = sys.argv[1:]
+    # -h/--help 必须**短路**：这个脚本原先把 `--help` 当成"知识库路径"参数，
+    # 于是"看一眼用法"会真的跑一次拉取、并**覆写**特性缓存文件。
+    # 实测踩过：审计 CLI 时可调用性时，`--help` 触发了真实的拉取。
+    # 这与此前修过的「写操作没有标记」是同一类问题：探索不该有副作用。
+    if "-h" in argv or "--help" in argv:
+        print(
+            "pull_persona_traits.py —— 从知识库拉取女友人格特性并沉淀\n"
+            "\n"
+            "用法：\n"
+            "  python pull_persona_traits.py [知识库路径] [令牌]\n"
+            "\n"
+            "两个参数都可省略。省略时按下列顺序解析知识库位置（详见文件头注释）：\n"
+            "  1. 命令行第一个参数\n"
+            "  2. `.evolution/obsidian_sync/config.json` 的 vault_path（**权威来源**）\n"
+            "  3. 几个常见候选目录\n"
+            "\n"
+            "产物：`.evolution/profile/persona_girlfriend.json`\n"
+            "（路径可由 `persona.talk_like_girlfriend.traits_cache_file` 覆盖）\n"
+            "\n"
+            "-h/--help 只打印本说明：**不拉取、不写任何文件**。\n")
+        sys.exit(0)
+    kb = argv[0] if len(argv) > 0 else ""
+    tok = argv[1] if len(argv) > 1 else ""
     pull_and_sync_traits(kb, tok)
