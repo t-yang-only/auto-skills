@@ -44,7 +44,7 @@ def _load_mysql_creds():
         env = db.get("password_env")
         pw = os.environ.get(env, "") if env else ""
     if not pw:
-        raise SystemExit("拿不到数据库密码：检查 config/db.password 或 database.password_env")
+        raise SystemExit("拿不到数据库密码：检查 database.password_file 指向的文件 或 database.password_env")
     return dict(host=db.get("host"), port=int(db.get("port") or 3306),
                 user=db.get("user"), password=pw, db=db.get("dbname"))
 

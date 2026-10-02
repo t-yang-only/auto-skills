@@ -71,9 +71,26 @@ def ensure_private_git_repo() -> bool:
             print(f"[ERROR] git init 失败: {err}")
             return False
         # 初始化 .gitignore
+        # 只同步「配置与资产」，不同步「运行时状态」——私有库的用途是多端
+        # 配置同步，而 db_spool / db_health / journal 这类是**每台机器各自
+        # 产生**的瞬时状态，同步过去只会在多端之间来回冲突（且暴露本机
+        # 的活动痕迹）。此前这里只排除 __pycache__，会把它们全带上去。
         ign = EVOLUTION_DIR / ".gitignore"
         if not ign.exists():
-            ign.write_text("__pycache__/\n*.py[cod]\n*.tmp\n", encoding="utf-8")
+            ign.write_text(
+                "# 运行时状态：每台机器各自产生，不跨端同步\n"
+                "db_spool/\n"
+                "db_health.json\n"
+                "db_cleanup.json\n"
+                "db_sync_errors.log\n"
+                "journal/\n"
+                "auto_skills.db\n"
+                "\n"
+                "# Python 缓存\n"
+                "__pycache__/\n"
+                "*.py[cod]\n"
+                "*.tmp\n",
+                encoding="utf-8")
         run_git_cmd(["add", "-A"], EVOLUTION_DIR)
         run_git_cmd(["commit", "-m", "chore: initialize user private evolution repository"], EVOLUTION_DIR)
         print("[OK] 独立私有 Git 仓库初始化完成！")
