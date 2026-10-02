@@ -41,7 +41,40 @@ except Exception:
 SELF_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = SELF_DIR.parent
 INTERNAL_TOOLS = SKILL_ROOT / "tools"
-PRIVATE_EVOLUTION_TOOLS = SKILL_ROOT / ".evolution" / "custom_skills"
+
+
+def _cfg_str(key: str, default: str = "") -> str:
+    """惰性读配置；读不到返回 default。
+
+    config_manager 在**函数内**导入，与既有 L286 的做法一致 ——
+    保持本模块在单文件拷贝出去时也能跑（不依赖同目录的兄弟模块）。
+    """
+    try:
+        import config_manager
+        v = config_manager.get_value(key, default)
+        return str(v) if v not in (None, "") else default
+    except Exception:
+        return default
+
+
+def _resolve_under_root(rel: str, fallback: Path) -> Path:
+    """把配置里的路径解析到技能根下；空值或异常一律用 fallback。"""
+    try:
+        if rel:
+            p = Path(str(rel))
+            return p if p.is_absolute() else (SKILL_ROOT / p)
+    except Exception:
+        pass
+    return fallback
+
+
+# 私有进化区工具目录。**以前这里是硬编码**，而配置里有
+# `evolution_vault.custom_skills_dir` 却没有任何代码读它 —— 也就是
+# 「在配置里改了技能目录」从来不生效（2026-10-02 接线修掉）。
+# 缺省值与原硬编码完全一致，所以不填配置的安装行为不变。
+PRIVATE_EVOLUTION_TOOLS = _resolve_under_root(
+    _cfg_str("evolution_vault.custom_skills_dir"),
+    SKILL_ROOT / ".evolution" / "custom_skills")
 
 USER_HOME = Path.home()
 # 固定优先根：自带工具 > 私有进化区 > 同级母技能 > 常见 harness 根。

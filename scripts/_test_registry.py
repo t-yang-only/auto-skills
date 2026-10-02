@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import yaml
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -944,6 +945,76 @@ def main():
                    % (len(_leaks), _leaks[:3]))
     except Exception as _e:
         check("脚本里无特定机器路径 / 私有标识", False, "异常: %s" % _e)
+
+    # ── 配置契约：每个配置键必须有消费者（2026-10-02 新增） ──
+    # 本项目反复栽在「配置项存在、写了却不生效」上（累计 20+ 例：
+    # notifications.enabled、kb_api_token、kb_source_url_or_path、
+    # 8 个通知渠道 webhook、custom_skills_dir、traits_cache_file …）。
+    # 每次都要靠人肉发现，代价高。这条把它变成机器可检的不变式。
+    #
+    # 关键是**双向匹配**：消费者可能写 get_value("a.b.c")（完整点号路径），
+    # 也可能写 cfg["leaf"]（裸键名）。只匹配一种会漏判 —— 本轮实测踩过：
+    # 只匹配裸键名时，db_sync 的 get_value("database.retention_days")
+    # 被误判为「无人读」，差点删掉一个真在用的键。
+    _DEFINER = "scripts/config_manager.py"   # 只定义默认值，不算消费者
+    _SKIP_PARTS = (".dist", ".git", "__pycache__", ".evolution")
+
+    def _leaf_keys(node, prefix=""):
+        out = []
+        if isinstance(node, dict):
+            for k, v in node.items():
+                out.extend(_leaf_keys(v, "%s.%s" % (prefix, k) if prefix else str(k)))
+        else:
+            out.append(prefix)
+        return out
+
+    def _consumers(full, sources):
+        leaf = full.split(".")[-1]
+        pats = [re.compile(r'["\']' + re.escape(full) + r'["\']'),
+                re.compile(r'["\']' + re.escape(leaf) + r'["\']')]
+        return [n for n, t in sources.items() if any(p.search(t) for p in pats)]
+
+    def _load_sources():
+        """收集「可能消费配置」的源码。
+
+        排除两类，各有硬理由：
+        - `config_manager.py`：它只**定义**默认值，不是消费者；
+        - `_test_*.py`：测试文件不算消费者 —— 一个键若只在测试里被提及，
+          实际就是死的；而且本判据自己的探针字符串写在测试文件里，
+          不排除会导致**自指**（判据把自己当成消费者，恒绿）。
+          这两条都是实测踩出来的：只排除 config_manager 时，
+          「凭空造的键」变异检查就假绿了。
+        """
+        out = {}
+        for _p in pathlib.Path(ROOT).rglob("*.py"):
+            if any(x in _p.parts for x in _SKIP_PARTS):
+                continue
+            rel = _p.relative_to(ROOT).as_posix()
+            if rel == _DEFINER or _p.name.startswith("_test_"):
+                continue
+            try:
+                out[rel] = _p.read_text(encoding="utf-8")
+            except Exception:
+                pass
+        return out
+
+    _ex = pathlib.Path(ROOT) / "config" / "config.example.yaml"
+    if not _ex.exists():
+        check("配置契约：能读到 config.example.yaml（否则本条不具判别力）",
+              False, str(_ex))
+    else:
+        _keys = _leaf_keys(yaml.safe_load(_ex.read_text(encoding="utf-8")) or {})
+        _src = _load_sources()
+        _dead = [k for k in _keys if not _consumers(k, _src)]
+        check("配置契约：每个配置键都有消费者（没有「配了不生效」的键）",
+              not _dead, "无消费者的键: %s" % (_dead or "无"))
+        # 变异：判据必须既不恒红也不恒绿
+        check("变异：已知有消费者的键能被找到（判据不恒红）",
+              bool(_consumers("database.host", _src)), "database.host")
+        check("变异：凭空造的键被判为无消费者（判据不恒绿）",
+              not _consumers("__no_such_key_probe_xyz__", _src),
+              "__no_such_key_probe_xyz__")
+        print("      （共扫 %d 个配置键）" % len(_keys))
 
     return report()
 
