@@ -18,6 +18,7 @@ git_push_notify.py — Git 一键提交推送并自动发送 Server酱 微信通
 """
 
 import os
+import re
 import sys
 import argparse
 import subprocess
@@ -68,12 +69,30 @@ def git_commit_push_and_notify(commit_msg: str, project_name: str = "auto-skills
     print(f"[OK] git push 推送成功！(Commit: {hash_str})")
 
     # 6. 发送 Server酱 微信通知
-    summary = f"**提交日志**：`{commit_msg}`\n\n**分支信息**：`{branch_str}` (`{hash_str}`)\n\n**变动概要**：\n```text\n{diff_stat[:400] if diff_stat else '常规增量更新'}\n```"
-    deliverables = [
-        f"Git 远端推送成功 (HEAD: {hash_str})",
-        "代码与规范文档已同步至 GitHub",
-        "本地全量单元测试与编译检查 100% 通过"
-    ]
+    # ── 人看 / AI 看分层（2026-10-02）──
+    # 原先这里把 `git diff --stat` 原文（截 400 字符）装进 ```text 代码块塞给手机 ——
+    # 手机上那是一坨等宽表格，读不了。**完整 diff 留在 commit message 里**
+    # （AI 与桌面端看），通知只给一行数字概要。
+    stat_line = ""
+    if diff_stat:
+        parts = []
+        _m = re.search(r"(\d+) files? changed", diff_stat)
+        if _m:
+            parts.append("%s 个文件" % _m.group(1))
+        _m = re.search(r"(\d+) insertions?", diff_stat)
+        if _m:
+            parts.append("+%s" % _m.group(1))
+        _m = re.search(r"(\d+) deletions?", diff_stat)
+        if _m:
+            parts.append("−%s" % _m.group(1))
+        if parts:
+            stat_line = "改动：" + " / ".join(parts)
+
+    summary = commit_msg.strip()
+    if stat_line:
+        summary += "\n" + stat_line
+    # 交付物不再自动塞「100% 通过」这类**未经当次验证**的话术
+    deliverables = [f"已推送至 {branch_str} ({hash_str})"]
 
     print("[*] 正在发送 Server酱 微信通知...")
     notify_task_complete(

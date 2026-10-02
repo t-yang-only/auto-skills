@@ -697,7 +697,6 @@ def main():
             import wizard_setup
             wizard_setup.run_auto_setup(
                 always_nm=True,
-                auto_update=True,
                 girlfriend_mode=False,
                 kb_sync_gf=True,
                 private_git="",

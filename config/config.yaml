@@ -1,7 +1,5 @@
 version: 3.0.0
 is_configured: true
-auto_update:
-  auto_download_public_update: true
 notifications:
   enabled: null
   serverchan_sendkey: ''

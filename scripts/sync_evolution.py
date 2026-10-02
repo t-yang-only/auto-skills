@@ -85,6 +85,8 @@ def ensure_private_git_repo() -> bool:
                 "db_sync_errors.log\n"
                 "journal/\n"
                 "auto_skills.db\n"
+                "# 通道自愈状态：每次探测都会改写，属本机状态\n"
+                "hk-channel-state.json\n"
                 "\n"
                 "# Python 缓存\n"
                 "__pycache__/\n"

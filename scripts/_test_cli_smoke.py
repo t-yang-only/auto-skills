@@ -155,6 +155,44 @@ def main():
     check("每个 CLI 入口 `--help` 都**不产生副作用**（文件未被改写）",
           not dirty, dirty)
 
+    # ── 通知契约：给人看的通知必须简洁（2026-10-02 新增） ──
+    # 见 SKILL.md 7.4。通知是给人看的，混进机器细节的后果是"人干脆不读了"——
+    # 那比不发还糟。判据锚**可见内容**（字符数/行数/不该出现的形态），
+    # 不锚实现细节（改模板措辞不该让判据变红，超出长度才该）。
+    import importlib.util as _ilu
+    _np = None
+    try:
+        _spec = _ilu.spec_from_file_location(
+            "_np_probe", str(ROOT_HERE / "scripts" / "notify_push.py"))
+        _np = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_np)
+    except Exception as e:
+        check("能加载 notify_push（否则通知契约不具判别力）", False,
+              "%s: %s" % (type(e).__name__, e))
+
+    if _np is not None:
+        _cap = {}
+        # 拦下真正的发送，只看它**准备发什么**
+        _np.broadcast_message = lambda title, desp, tags=None, target_channel=None: (
+            _cap.update(t=title, d=desp) or {"ok": True})
+        _np.notify_task_complete(
+            task_name="契约探针",
+            project_name="probe",
+            summary="这是一段特意写得很长的说明文字，用来验证通知正文会被截断。" * 4,
+            deliverables=["第一条交付物", "第二条交付物", "第三条不该出现"],
+            git_commit="abcdef1234567890",
+        )
+        _d = _cap.get("d", "")
+        check("通知正文 ≤280 字符（超了人就不读了）", len(_d) <= 280,
+              "%d 字符" % len(_d))
+        check("通知正文 ≤5 行", len(_d.splitlines()) <= 5,
+              "%d 行" % len(_d.splitlines()))
+        _bad = [k for k in ("## ", "**", "```", "自动化广播", "SUCCESS") if k in _d]
+        check("通知正文不含重标题/加粗/代码块/固定签名/恒真状态行",
+              not _bad, _bad)
+        check("通知正文确实有内容（判据不恒绿）", len(_d.strip()) > 0,
+              "%d 字符" % len(_d))
+
     print()
     total = len(PASS) + len(FAIL)
     print("RESULT: %s (%d/%d)" % ("ALL_PASS" if not FAIL else "HAS_FAIL",
