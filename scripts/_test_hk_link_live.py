@@ -108,6 +108,55 @@ def main():
     check("T7 --help 短路 → rc=0 且没有跑检查/没推送",
           rc == 0 and n == 0 and "OVERALL" not in out and "用法" in out, out)
 
+    # ── T8：别名守卫（2026-10-02 新增）──
+    # check_gateway_node 的「未配置」分支必须看 hk_channel 的**解析结果**，
+    # 不能只看环境变量 —— 否则把别名配在私有层（hk_channel.direct_host）
+    # 也会被判成"没配"，而通道其实完全可用。实测踩过。
+    mod8 = _load("hk_link_live", LINK)
+    ch8 = _load("hk_channel", CHANNEL)
+    # ⚠️ 必须把 ch8 注册进 sys.modules：`check_gateway_node` 里是
+    # `import hk_channel as mod`，取的是 sys.modules 里那个实例。
+    # 不注册的话，patch 的是另一个副本 → 它照跑**真实探测**（实测踩过：
+    # 断言里出现真实节点名，说明根本没走 mock）。
+    import sys as _sys8
+    _prev_mod = _sys8.modules.get("hk_channel")
+    _sys8.modules["hk_channel"] = ch8
+    import os as _os
+    _sd, _sj = ch8.DIRECT_HOST, ch8.JUMP_HOST
+    _se = {k: _os.environ.pop(k, None) for k in ("HK_DIRECT_HOST", "HK_JUMP_HOST")}
+    _sr = (ch8.pick_host, ch8.hk_run)
+    try:
+        # 重定向到隔离副本，避免真去解析本机的 SSH 配置
+        _fake_health = ('{"ok": true, "nodes": ["node-alpha", "node-beta"]}')
+
+        def _fake_run(_cmd):
+            return 0, _fake_health
+
+        ch8.pick_host = lambda: ("fake-alias", "direct")
+        ch8.hk_run = _fake_run
+
+        # ① 两个别名都是占位符 → 必须报 unknown（不能误判为链路故障）
+        ch8.DIRECT_HOST, ch8.JUMP_HOST = "remote-host", "remote-via-jump"
+        _st, _d = mod8.check_gateway_node()
+        check("T8 别名为占位符 → unknown（不误判成链路故障）",
+              _st == "unknown", "%s / %s" % (_st, _d))
+
+        # ② 别名来自配置（非占位符）→ 不能短路成 unknown，要真的去判
+        ch8.DIRECT_HOST, ch8.JUMP_HOST = "configured-alias", "remote-via-jump"
+        _st2, _d2 = mod8.check_gateway_node()
+        check("T8b 别名来自配置 → 不再短路成 unknown（真去判定）",
+              _st2 != "unknown", "%s / %s" % (_st2, _d2))
+    finally:
+        ch8.pick_host, ch8.hk_run = _sr
+        ch8.DIRECT_HOST, ch8.JUMP_HOST = _sd, _sj
+        for _k, _v in _se.items():
+            if _v is not None:
+                _os.environ[_k] = _v
+        if _prev_mod is None:
+            _sys8.modules.pop("hk_channel", None)
+        else:
+            _sys8.modules["hk_channel"] = _prev_mod
+
     # T5 parse_health：真实形态（hk_run 前缀 + 多行缩进 JSON）必须解得出
     # ——这条是补的：前四条测试把 check_gateway_node 整个 mock 掉了，
     # 真实跑时才发现「只取最后一个 { 行」解析不了多行 JSON。

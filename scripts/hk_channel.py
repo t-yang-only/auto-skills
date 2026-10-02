@@ -48,8 +48,33 @@ import subprocess
 import sys
 import time
 
-DIRECT_HOST = os.environ.get("HK_DIRECT_HOST", "remote-host")
-JUMP_HOST = os.environ.get("HK_JUMP_HOST", "remote-via-jump")
+def _host_alias(cfg_key: str, env_name: str, placeholder: str) -> str:
+    """解析远端主机别名，三级回退：**私有层配置 → 环境变量 → 占位符**。
+
+    为什么要有配置入口（2026-10-02 补）：这两个别名原先**只**来自环境变量，
+    而仓库里没有任何脚本或配置去设置它们 —— 实测本机用户级/机器级环境变量
+    均为空、无 .env、无相关计划任务，于是通道实际上**是死的**：
+    每次调用都去连占位符名字 `remote-host`，必然失败。
+    这与项目里其它链路（数据库/网关/知识库/通知）都有正规配置入口不一致，
+    是唯一一条漏掉的。
+
+    真实别名属本机信息，只放私有层（`.evolution/config.yaml`，不进公开库）；
+    环境变量仍然优先于配置，便于临时覆盖与测试隔离；
+    两级都没有时才用占位符（保持"脚本内不写死真实主机"这条设计约束）。
+    """
+    try:
+        import config_manager
+        v = config_manager.get_value("hk_channel.%s" % cfg_key, "")
+        if v and str(v).strip():
+            return str(v).strip()
+    except Exception:
+        pass                      # 单文件拷贝出去时也要能跑
+    v = (os.environ.get(env_name) or "").strip()
+    return v or placeholder
+
+
+DIRECT_HOST = _host_alias("direct_host", "HK_DIRECT_HOST", "remote-host")
+JUMP_HOST = _host_alias("jump_host", "HK_JUMP_HOST", "remote-via-jump")
 SSH_BIN = os.environ.get("HK_SSH_BIN", "ssh")
 SCP_BIN = os.environ.get("HK_SCP_BIN", "scp")
 PROBE_TIMEOUT = int(os.environ.get("HK_PROBE_TIMEOUT", "8"))

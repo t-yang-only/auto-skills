@@ -127,9 +127,17 @@ def check_gateway_node():
     实测踩过：本机节点明明在线（直连网关 /health 的 nodes 里有它），这里却报 FAIL。
     """
     if not (os.environ.get("HK_DIRECT_HOST") or os.environ.get("HK_JUMP_HOST")):
-        return ("unknown",
-                "未配置 HK_DIRECT_HOST / HK_JUMP_HOST（按设计不写死真实主机）"
-                "→ 无法经通道判定；请用直连 /health 交叉验证")
+        # 注意：**不能只看环境变量**。自 2026-10-02 起别名也可以配在私有层
+        # （`hk_channel.direct_host` / `jump_host`），而 `hk_channel` 自己
+        # 会按「配置 → 环境 → 占位符」三级解析。所以这里应该问
+        # hk_channel **解析结果**是不是占位符，而不是问环境变量在不在 ——
+        # 否则"配了配置"也会被误判成"没配"。
+        import hk_channel as _hc
+        _placeholders = {"remote-host", "remote-via-jump"}
+        if not ({_hc.DIRECT_HOST, _hc.JUMP_HOST} - _placeholders):
+            return ("unknown",
+                    "未配置主机别名（`hk_channel.direct_host` / `jump_host` 或对应环境变量）"
+                    "→ 无法经通道判定；请用直连 /health 交叉验证")
     import hk_channel as mod
     try:
         host, _ = mod.pick_host()

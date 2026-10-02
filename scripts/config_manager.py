@@ -73,6 +73,10 @@ def get_default_config() -> Dict[str, Any]:
     return {
         "version": "3.0.0",
         "is_configured": False,
+        "hk_channel": {
+            "direct_host": "",
+            "jump_host": ""
+        },
         "notifications": {
             "enabled": None,
             "serverchan_sendkey": "",
