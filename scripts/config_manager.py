@@ -100,6 +100,18 @@ def get_default_config() -> Dict[str, Any]:
         },
         "agent_connections": {
             "connected_agents": []
+        },
+        "cognition": {
+            "mode": "advisory",
+            "thresholds": {
+                "source_files": 40,
+                "code_lines": 4000,
+                "source_bytes": 1048576,
+                "min_files_for_bytes": 20
+            },
+            "scope": {
+                "extra_source_extensions": []
+            }
         }
     }
 

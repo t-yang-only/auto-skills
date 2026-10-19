@@ -544,6 +544,19 @@ def build_smart_plan(query: str, mode: str = "auto") -> Dict[str, Any]:
     if missing:
         notes.append(f"发现未安装成员: {missing}，可通过 tools/ 下收拢组件或 skm 纳管补全")
 
+    # AOCI-CODE 全局认知地图状态感知 (非阻塞，纯只读)
+    try:
+        import aoci_cognition
+        cog_need = aoci_cognition.check_project_cognition_need(Path.cwd())
+        if cog_need and not cog_need.get("has_cognition"):
+            m = cog_need.get("metrics", {})
+            notes.append(
+                f"[AOCI 认知地图] 当前代码规模已达中大型标准（{m.get('source_files', 0)} 个源码文件 / {m.get('code_lines', 0)} 行代码），"
+                "建议通过 `python scripts/auto_router.py aoci init` 建立 AOCI 全局认知索引。"
+            )
+    except Exception:
+        pass
+
     plan_result = {
         "query": q,
         "task_tier": "FULL_SDLC",
@@ -779,6 +792,16 @@ def main():
     # 7. 显式记录一次工具链调用 (trace)
     if len(sys.argv) > 1 and sys.argv[1] == "trace":
         return cmd_trace(sys.argv[2:])
+
+    # 7.5 AOCI-CODE 全局认知地图与规模探测子命令 (aoci / cognition)
+    if len(sys.argv) > 1 and sys.argv[1] in ("aoci", "cognition"):
+        try:
+            import aoci_cognition
+            sys.argv.pop(1)
+            return aoci_cognition.main(sys.argv[1:])
+        except Exception as e:
+            print(f"[ERROR] 调用 AOCI 认知模块失败: {e}")
+            sys.exit(1)
 
     # 8. 显式路由子命令 (route)：剥离子命令名后再交给 build_smart_plan。
     #
