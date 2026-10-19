@@ -163,7 +163,7 @@ def main(argv):
     # 注意**不改变裸跑行为**：无参数时仍旧跑一次自检（可能有定时任务依赖它）。
     if "-h" in argv or "--help" in argv:
         print(
-            "hk_link_live.py —— 本机↔远端链路端到端自检\n"
+            "hk_link_live.py —— 本机到远端链路端到端自检\n"
             "\n"
             "用法：\n"
             "  python hk_link_live.py                    跑一次自检（默认，行为不变）\n"
@@ -211,7 +211,7 @@ def main(argv):
             msg = "HK link 链路失联。L=" + local_detail + ", GW=" + gw_detail
             rc, outp = hk_run(
                 "bash /usr/local/bin/serverchan-push.sh "
-                "'⚠️ 本机↔" + link_label + " 链路失联' '" + msg[:300] + "'")
+                "'⚠️ 本机到" + link_label + " 链路失联' '" + msg[:300] + "'")
             # 推送结果必须回显：静默的告警通路等于没有告警通路（这个脚本
             # 本身就是为"链路静默失联 5 天没人发现"写的，不能重犯）。
             print("PUSH:", "OK" if rc == 0 else "FAIL", outp.strip()[:200])

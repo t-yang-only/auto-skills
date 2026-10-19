@@ -20,6 +20,7 @@
 刻意不写死输出文案的全文，只断言「含某个关键标记」与「退出码」——
 文案会改，行为契约不该跟着漂。
 """
+import os
 import subprocess
 import sys
 import tempfile
@@ -136,9 +137,11 @@ def main():
             pass
 
     bad_rc, dirty = [], []
+    sub_env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
     for _p in entries:
         before = _snap()
         r = subprocess.run([sys.executable, _p, "--help"],
+                           cwd=str(ROOT_HERE), env=sub_env,
                            capture_output=True, encoding="utf-8",
                            errors="replace", timeout=90)
         after = _snap()

@@ -1,0 +1,103 @@
+#AOCI-CODE-VOLUME: 1
+
+
+===config===
+config.example.yaml[CG5S]: F:实现 config.example.yaml 核心逻辑 | R:- | A:- | S:-
+config.yaml[CG5S]: F:实现 config.yaml 核心逻辑 | R:- | A:- | S:-
+
+===scripts===
+_test_aoci_cognition.py[CG5S]: F:实现 _test_aoci_cognition.py 核心逻辑 | R:- | A:- | S:-
+_test_cli_smoke.py[CG5S]: F:实现 _test_cli_smoke.py 核心逻辑 | R:- | A:- | S:-
+_test_concurrent_claim.py[CG5S]: F:实现 _test_concurrent_claim.py 核心逻辑 | R:- | A:- | S:-
+_test_conn_reuse.py[CG5S]: F:实现 _test_conn_reuse.py 核心逻辑 | R:- | A:- | S:-
+_test_deploy_guards.py[CG5S]: F:实现 _test_deploy_guards.py 核心逻辑 | R:- | A:- | S:-
+_test_doc_tree_guards.py[CG5S]: F:实现 _test_doc_tree_guards.py 核心逻辑 | R:- | A:- | S:-
+_test_failover.py[CG5S]: F:实现 _test_failover.py 核心逻辑 | R:- | A:- | S:-
+_test_hk_channel.py[CG5S]: F:实现 _test_hk_channel.py 核心逻辑 | R:- | A:- | S:-
+_test_hk_link_live.py[CG5S]: F:实现 _test_hk_link_live.py 核心逻辑 | R:- | A:- | S:-
+_test_mutex_guards.py[CG5S]: F:实现 _test_mutex_guards.py 核心逻辑 | R:- | A:- | S:-
+_test_obsidian_import.py[CG5S]: F:实现 _test_obsidian_import.py 核心逻辑 | R:- | A:- | S:-
+_test_registry.py[CG5S]: F:实现 _test_registry.py 核心逻辑 | R:- | A:- | S:-
+_test_silent_failures.py[CG5S]: F:实现 _test_silent_failures.py 核心逻辑 | R:- | A:- | S:-
+_test_undefined_names.py[CG5S]: F:实现 _test_undefined_names.py 核心逻辑 | R:- | A:- | S:-
+_test_untrusted_text.py[CG5S]: F:实现 _test_untrusted_text.py 核心逻辑 | R:- | A:- | S:-
+aoci_cognition.py[CG5S]: F:实现 aoci_cognition.py 核心逻辑 | R:- | A:- | S:-
+aoci_inventory.py[CG5S]: F:实现 aoci_inventory.py 核心逻辑 | R:- | A:- | S:-
+auto_router.py[CG5S]: F:实现 auto_router.py 核心逻辑 | R:- | A:- | S:-
+config_manager.py[CG5S]: F:实现 config_manager.py 核心逻辑 | R:- | A:- | S:-
+db_sync.py[CG5S]: F:实现 db_sync.py 核心逻辑 | R:- | A:- | S:-
+experience_mining.py[CG5S]: F:实现 experience_mining.py 核心逻辑 | R:- | A:- | S:-
+git_push_notify.py[CG5S]: F:实现 git_push_notify.py 核心逻辑 | R:- | A:- | S:-
+hk_channel.py[CG5S]: F:实现 hk_channel.py 核心逻辑 | R:- | A:- | S:-
+hk_link_live.py[CG5S]: F:实现 hk_link_live.py 核心逻辑 | R:- | A:- | S:-
+init_evolution_vault.py[CG5S]: F:实现 init_evolution_vault.py 核心逻辑 | R:- | A:- | S:-
+nm_register.py[CG5S]: F:实现 nm_register.py 核心逻辑 | R:- | A:- | S:-
+notify_push.py[CG5S]: F:实现 notify_push.py 核心逻辑 | R:- | A:- | S:-
+obsidian_bridge.py[CG5S]: F:实现 obsidian_bridge.py 核心逻辑 | R:- | A:- | S:-
+opinion_request.py[CG5S]: F:实现 opinion_request.py 核心逻辑 | R:- | A:- | S:-
+pull_persona_traits.py[CG5S]: F:实现 pull_persona_traits.py 核心逻辑 | R:- | A:- | S:-
+sync_evolution.py[CG5S]: F:实现 sync_evolution.py 核心逻辑 | R:- | A:- | S:-
+sync_skill_counts.py[CG5S]: F:实现 sync_skill_counts.py 核心逻辑 | R:- | A:- | S:-
+tool_onboarder.py[CG5S]: F:实现 tool_onboarder.py 核心逻辑 | R:- | A:- | S:-
+untrusted_text.py[CG5S]: F:实现 untrusted_text.py 核心逻辑 | R:- | A:- | S:-
+wizard_setup.py[CG5S]: F:实现 wizard_setup.py 核心逻辑 | R:- | A:- | S:-
+
+===tools===
+registry.json[CG5S]: F:实现 registry.json 核心逻辑 | R:- | A:- | S:-
+
+===tools/brainstorming/scripts===
+helper.js[CG5S]: F:实现 helper.js 核心逻辑 | R:- | A:- | S:-
+server.cjs[CG5S]: F:实现 server.cjs 核心逻辑 | R:- | A:- | S:-
+start-server.sh[CG5S]: F:实现 start-server.sh 核心逻辑 | R:- | A:- | S:-
+stop-server.sh[CG5S]: F:实现 stop-server.sh 核心逻辑 | R:- | A:- | S:-
+
+===tools/cli-creator/agents===
+openai.yaml[CG5S]: F:实现 openai.yaml 核心逻辑 | R:- | A:- | S:-
+
+===tools/codex-memory-guard/agents===
+openai.yaml[CG5S]: F:实现 openai.yaml 核心逻辑 | R:- | A:- | S:-
+
+===tools/codex-memory-guard/scripts===
+codex-memory-guard.ps1[CG5S]: F:实现 codex-memory-guard.ps1 核心逻辑 | R:- | A:- | S:-
+initialize-memory-system.ps1[CG5S]: F:实现 initialize-memory-system.ps1 核心逻辑 | R:- | A:- | S:-
+install.ps1[CG5S]: F:实现 install.ps1 核心逻辑 | R:- | A:- | S:-
+test.ps1[CG5S]: F:实现 test.ps1 核心逻辑 | R:- | A:- | S:-
+uninstall.ps1[CG5S]: F:实现 uninstall.ps1 核心逻辑 | R:- | A:- | S:-
+validate-handoff.ps1[CG5S]: F:实现 validate-handoff.ps1 核心逻辑 | R:- | A:- | S:-
+
+===tools/gh-fix-ci/agents===
+openai.yaml[CG5S]: F:实现 openai.yaml 核心逻辑 | R:- | A:- | S:-
+
+===tools/gh-fix-ci/scripts===
+inspect_pr_checks.py[CG5S]: F:实现 inspect_pr_checks.py 核心逻辑 | R:- | A:- | S:-
+
+===tools/jupyter-notebook/agents===
+openai.yaml[CG5S]: F:实现 openai.yaml 核心逻辑 | R:- | A:- | S:-
+
+===tools/jupyter-notebook/scripts===
+new_notebook.py[CG5S]: F:实现 new_notebook.py 核心逻辑 | R:- | A:- | S:-
+
+===tools/memory-consolidate/scripts===
+scan_memory.mjs[CG5S]: F:实现 scan_memory.mjs 核心逻辑 | R:- | A:- | S:-
+
+===tools/no-negative-echo===
+.no-negative-echo-provenance.json[CG5S]: F:实现 .no-negative-echo-provenance.json 核心逻辑 | R:- | A:- | S:-
+
+===tools/no-negative-echo/agents===
+openai.yaml[CG5S]: F:实现 openai.yaml 核心逻辑 | R:- | A:- | S:-
+
+===tools/no-negative-echo/scripts===
+check_surface.py[CG5S]: F:实现 check_surface.py 核心逻辑 | R:- | A:- | S:-
+
+===tools/playwright/agents===
+openai.yaml[CG5S]: F:实现 openai.yaml 核心逻辑 | R:- | A:- | S:-
+
+===tools/playwright/scripts===
+playwright_cli.sh[CG5S]: F:实现 playwright_cli.sh 核心逻辑 | R:- | A:- | S:-
+
+===tools/security-best-practices/agents===
+openai.yaml[CG5S]: F:实现 openai.yaml 核心逻辑 | R:- | A:- | S:-
+
+===tools/skillnet/scripts===
+skillnet_create.py[CG5S]: F:实现 skillnet_create.py 核心逻辑 | R:- | A:- | S:-
+skillnet_validate.py[CG5S]: F:实现 skillnet_validate.py 核心逻辑 | R:- | A:- | S:-

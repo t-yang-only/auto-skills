@@ -112,3 +112,15 @@ agent_connections:
 hk_channel:
   direct_host: ""      # 直连的 SSH 别名（如 ~/.ssh/config 里的 Host 名）
   jump_host: ""        # 备用跳板别名（直连不通时用；可留空）
+
+# AOCI-CODE 全局认知地图与规模感知 (scripts/aoci_cognition.py)
+# 当项目代码规模达到阈值时，自动向 Agent 提供全局认知地图建立与治理建议。
+cognition:
+  mode: "advisory"     # 运行模式: advisory (建议模式，默认) | auto (自动建档) | off (关闭)
+  thresholds:
+    source_files: 40   # 触发认知建立的有效源码文件数门槛
+    code_lines: 4000   # 触发认知建立的代码行数门槛
+    source_bytes: 1048576 # 触发认知建立的源码字节门槛 (1MB)
+    min_files_for_bytes: 20 # 配合体积门槛的最小源码文件数
+  scope:
+    extra_source_extensions: [] # 附加受管扩展名 (如 [".sol", ".cairo"])

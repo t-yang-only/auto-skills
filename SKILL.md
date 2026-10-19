@@ -34,6 +34,9 @@ metadata:
 auto-skills/
 ├── SKILL.md                # 全局调度规范、多 Agent 协同契约与生命周期规则
 ├── README.md               # 开源项目全景说明文档
+├── aoci.txt                # AOCI-CODE 认知根声明 (CognitionSet 注册与卷拓扑)
+├── aoci.meta.txt           # AOCI-CODE 元数据卷 (标签字典与 FRAS 规范约束)
+├── aoci.code.txt           # AOCI-CODE 代码认知卷 (FRAS 仓库认知地图)
 ├── LICENSE                 # MIT 开源协议
 ├── .gitignore              # Git 过滤规则 (包含 .evolution 私有进化区保护)
 ├── .gitattributes          # 统一行尾为 LF (防 Windows autocrlf 把检出改成 CRLF)
@@ -66,6 +69,9 @@ auto-skills/
 │   ├── _test_hk_channel.py # 自愈通道回归测试（mock ssh）
 │   ├── _test_deploy_guards.py # 回归：凭据清理的链接/副本两分支（含变异检查）
 │   ├── untrusted_text.py    # 不可信文本消毒：注入形状检测 + 零宽/控制字符剥离 + 边界围栏
+│   ├── aoci_inventory.py   # AOCI 项目规模探测、有效源码筛选与阈值判定引擎
+│   ├── aoci_cognition.py   # AOCI 全局认知地图调度器、索引治理与生命周期中枢
+│   ├── _test_aoci_cognition.py # 回归：AOCI 项目规模判定、资产初始化与契约守卫
 │   ├── _test_untrusted_text.py # 回归：34 项（命中真实注入样本 / 不误报正常技术文本 / 变异检查）
 │   ├── _test_conn_reuse.py  # 回归：连接复用守卫（复用确发生 / 池不泄漏 / doctor 绕过池 / 变异检查）
 │   ├── _test_mutex_guards.py # 回归：FileMutex 互斥守卫（活着的持有者不被抢 / 释放不误删他人锁 / 变异检查）
@@ -124,7 +130,8 @@ auto-skills/
 │   └── SKILL.md            # 新技能纳管骨架模板 (--add 缺 SKILL.md 时按此生成)
 └── references/
     ├── capability-map.md   # 44 大成员能力全景映射表与冲突优先级
-    └── 本机运维层.md        # 两个计划任务（部署看门狗 / 每日备份）与恢复演练
+    ├── 本机运维层.md        # 两个计划任务（部署看门狗 / 每日备份）与恢复演练
+    └── AOCI认知索引升级架构计划.md # 待实施：规模触发、治理闭环与分阶段验收
 ```
 
 ---
