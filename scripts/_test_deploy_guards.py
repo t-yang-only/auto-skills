@@ -244,7 +244,8 @@ def main():
     SECRET_REL = ("secrets/notify_channels.json", "secrets/db.password")
     # **声明允许被同步的路径**（白名单）。实际跟踪面必须完全落在这里面。
     ALLOW = ("config.yaml", "README.md", ".gitignore",
-             "custom_skills/", "obsidian_sync/", "profile/", "secrets/")
+             "custom_skills/", "obsidian_sync/", "profile/", "secrets/",
+             "handoffs/")
 
     if not (evo / ".git").exists():
         print("  [SKIP] 私有库未初始化（新装默认状态）—— 私有层断言不具判别力")
