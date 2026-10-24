@@ -922,17 +922,31 @@ def main():
 
     # [15] 技能库不得携带特定机器的路径与私有标识
     # 通用技能库会被分发到别人的机器上：作者本机的盘符路径、私有域名、内网 IP
-    # 对使用者是噪声，对原作者是泄露。用黑名单而不是「禁止所有盘符路径」——
-    # C:/path/to/my-agent-skill、D:\YourVault 这类中性占位符是合法的。
+    # 对使用者是噪声，对原作者是泄露。黑名单分两层（2026-10-25 起）：
+    #  - 公开库源码只放对任何人都成立的通用形状（sendkey 形状、中性占位路径），
+    #    真实标识一律不进公开库——守卫源码自己带真值就是泄露（本项目实测踩过，
+    #     真实 IP/凭据片段曾以转义形式写在本守卫里并被推上公开远端）；
+    #  - 作者的真实标识放私有层 .evolution/secrets/leak_blacklist.txt，
+    #    每行一个字面量（# 开头为注释），守卫加载后按不区分大小写字面量匹配；
+    #    没有私有层的机器（公开库使用者）自动只剩通用模式，守卫照样可用。
     _LEAK_PAT = re.compile(
-        r"D:[/\\](YourWiki|ObsidianVault|skills)\b"
-        r"|sample-user|203\.0\.113\.7|sample=placeholder|SCT[0-9]{4,}",
+        r"D:[/\\](?:YourVault|MyVault)\b"
+        r"|SCT[0-9A-Za-z]{10,}",
         re.I)
+    _blacklist_file = pathlib.Path(ROOT) / ".evolution" / "secrets" / "leak_blacklist.txt"
+    if _blacklist_file.exists():
+        _extra = [ln.strip() for ln in
+                  _blacklist_file.read_text(encoding="utf-8-sig").splitlines()
+                  if ln.strip() and not ln.strip().startswith("#")]
+        if _extra:
+            _LEAK_PAT = re.compile(
+                _LEAK_PAT.pattern + "|" + "|".join(re.escape(x) for x in _extra),
+                re.I)
     try:
         _leaks = []
         for _p in sorted((pathlib.Path(ROOT) / "scripts").glob("*.py")):
-            # 跳过守卫自身：它的黑名单字面量必然包含这些词，扫自己会恒红。
-            # 这不是放宽——放宽守卫本身由「负向测试」段落保证（塞一条进去必须变红）。
+            # 跳过守卫自身：私有黑名单里的词可能出现在本守卫的模式字面量附近，
+            # 扫自己会恒红。这不是放宽——「守卫的守卫」由 _test_doc_tree_guards 保证。
             if _p.name == "_test_registry.py":
                 continue
             for _i, _line in enumerate(_p.read_text(encoding="utf-8-sig").split("\n"), 1):

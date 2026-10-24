@@ -41,6 +41,7 @@ database:
   type: mysql
 
   # mysql 直连参数（type: mysql 时生效）
+  # host/port 只是占位示例：真实值由 .evolution/config.yaml 覆盖层提供，不进公开库
   host: db.example.com
   port: 3306
   dbname: auto_skills
