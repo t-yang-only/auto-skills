@@ -2,17 +2,11 @@
 name: auto-skills
 description: >
   Next-Gen AI Development Workflow Orchestrator, Multi-Skill Router & Multi-Agent Coordination Hub (v3.0 Flagship).
-  深度融合多 Agent 原子任务认领与排他工作台账中枢 (nm-skills 牛马协同中枢)：原生提供任务独占锁 (claim)、租约排他锁 (Lease with TTL)、严格单调防撞编号分配器、实时任务看板 (board) 与工作日志自动归档，彻底根除多 Agent 并发抢跑同一任务、序号同号冲突与文件覆盖痛点。
-  Bundles 44 top-tier universal workflow skills with zero-missing multi-root fallback resolution and full SDLC lifecycle stage routing:
-  using-superpowers (baseline pre-flight), nm-skills (atomic task claim & mutual exclusion ledger), grill-me (Socratic requirement stress-test), brainstorming (intent/design hard gate),
-  codebase-onboarding (unfamiliar repo recon), markdown-viewer (architectural diagrams), ponytail (YAGNI minimal coding),
-  test-driven-development (TDD red-green-refactor), systematic-debugging (4-phase root cause), code-review (5-axis QA),
-  verification-before-completion (evidence before any completion claim),
-  cli-creator (CLI generator), jupyter-notebook (interactive research), security-best-practices (vulnerability & baseline audit),
-  authorized-pentest-guard (offensive-defensive security guard), playwright (E2E browser testing), gh-fix-ci (GitHub Actions auto-fix),
-  find-skills / skill-discovery / skillnet (skill supply chain), skills-manager-cli (multi-tool symlink management),
-  codex-memory-guard & memory-consolidate (memory defense), codex-project-closeout & team-handoff (closeout & handoff),
-  talk-like-girlfriend, caveman, and no-negative-echo.
+  深度融合多 Agent 原子任务认领与排他工作台账中枢 (nm-skills 牛马协同中枢)：任务独占锁 (claim)、租约排他锁 (TTL Lease)、
+  严格单调防撞编号、实时任务看板 (board) 与工作日志自动归档，根除多 Agent 并发抢跑同一任务、序号同号冲突与文件覆盖痛点。
+  自洽收拢 44 个顶流通用工作流技能，打通 SDLC 全生命周期：前置自愈 -> 系统认知 -> 需求施压 -> 设计门禁 ->
+  TDD/YAGNI 实施 -> 根因调试 -> 5 轴代码严审 -> 安全防线 -> 端到端验证 -> 交付收尾与记忆归档；
+  含技能多根寻址、Fast-Path 三档路由、MySQL/SQLite 全链路落库、多渠道通知与意见请求通道。完整成员清单见正文第 1 节。
   当用户提到 auto-skills、nm-skills、牛马skills、工作登记、任务认领、排他锁、agent_word、多Agent协作、防止重复做任务时使用。
 metadata:
   short-description: 全能旗舰级 AI 研发全生命周期与多 Agent 协同排他台账总控中枢 (v3.0 深度融合 nm-skills)
