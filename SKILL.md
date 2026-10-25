@@ -22,7 +22,7 @@ metadata:
 
 ## 1. 核心架构 (Unified Architecture)
 
-母 Skill 内部 100% 自洽收拢：
+母 Skill 内部 100% 自洽收拢（Bundles 44 top-tier universal workflow skills，零缺失多根回退解析）：
 
 ```text
 auto-skills/
